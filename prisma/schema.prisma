@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+model Student {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  password          String
+  firstName         String
+  lastName          String
+  studentId         String   @unique
+  department        String?
+  yearOfStudy       Int?
+  semester          Int?
+  enrollmentDate    DateTime @default(now())
+  graduationDate    DateTime?
+  gpa               Float?   @default(0.0)
+  isVerified        Boolean  @default(false)
+  verificationToken String?  @unique
+  profileImage      String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Add these two:
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
+
+  @@map("students")
+}
+
+model Teacher {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  password          String
+  firstName         String
+  lastName          String
+  teacherId         String   @unique
+  department        String?
+  designation       String?
+  qualification     String?
+  specialization    String?
+  joiningDate       DateTime @default(now())
+  experience        Int?
+  isVerified        Boolean  @default(false)
+  verificationToken String?  @unique
+  profileImage      String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Add these two:
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
+
+  @@map("teachers")
+}
+
+model Admin {
+  id                String   @id @default(cuid())
+  email             String   @unique
+  password          String
+  firstName         String
+  lastName          String
+  adminId           String   @unique
+  department        String?
+  designation       String?
+  permissions       String[]
+  joiningDate       DateTime @default(now())
+  isVerified        Boolean  @default(false)
+  verificationToken String?  @unique
+  profileImage      String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Add these two:
+  passwordResetToken   String?   @unique
+  passwordResetExpires DateTime?
+
+  @@map("admins")
+}
