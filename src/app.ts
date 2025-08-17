@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 import authRoutes from './api/routes/auth.routes';
 import userRoutes from './api/routes/user.routes';
 import studentRoutes from './api/routes/student.routes';
@@ -14,14 +15,15 @@ const app = express();
 
 // Middlewares
 app.use(express.json()); // To parse JSON bodies
+app.use(cookieParser()); // To parse cookies
 
-// app.use(
-//   cors({
-//     origin: "http://localhost:3000", // Allow requests from frontend
-//     credentials: true, // Allow cookies if needed
-//     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-//   })
-// );
+app.use(
+  cors({
+    origin: "http://localhost:3000", // Allow requests from frontend
+    credentials: true, // Allow cookies if needed
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
+  })
+);
 
 // Basic Route
 app.get('/', (req: Request, res: Response) => {

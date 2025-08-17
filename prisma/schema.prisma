@@ -36,6 +36,10 @@ model Student {
   // Add these two:
   passwordResetToken   String?   @unique
   passwordResetExpires DateTime?
+  
+  // Refresh token support
+  refreshToken         String?   @unique
+  refreshTokenExpires  DateTime?
 
   @@map("students")
 }
@@ -63,6 +67,10 @@ model Teacher {
   // Add these two:
   passwordResetToken   String?   @unique
   passwordResetExpires DateTime?
+  
+  // Refresh token support
+  refreshToken         String?   @db.Text
+  refreshTokenExpires  DateTime?
 
   @@map("teachers")
 }
@@ -88,6 +96,10 @@ model Admin {
   // Add these two:
   passwordResetToken   String?   @unique
   passwordResetExpires DateTime?
+  
+  // Refresh token support
+  refreshToken         String?   @unique
+  refreshTokenExpires  DateTime?
 
   @@map("admins")
 }

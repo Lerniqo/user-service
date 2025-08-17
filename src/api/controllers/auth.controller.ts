@@ -13,6 +13,7 @@ import {
   LoginData,
   VerifyEmailData,
   LoginResponse,
+  RefreshTokenResponse,
   ProfileResponse,
   AuthenticatedRequest,
 } from "../../types";
@@ -239,15 +240,62 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const token = jwt.sign(
+    // Generate tokens
+    const accessToken = jwt.sign(
       { userId: user.id, email: user.email, role: role },
       process.env["JWT_SECRET"]!,
-      { expiresIn: "24h" }
+      { expiresIn: "15m" } // Short-lived access token
     );
+
+    const refreshToken = jwt.sign(
+      { userId: user.id, email: user.email, role: role },
+      process.env["JWT_REFRESH_SECRET"] || process.env["JWT_SECRET"]!,
+      { expiresIn: "7d" } // Long-lived refresh token
+    );
+
+    // Calculate refresh token expiry
+    const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+    // Store refresh token in database
+    if (role === "STUDENT") {
+      await prisma.student.update({
+        where: { id: user.id },
+        data: {
+          refreshToken,
+          refreshTokenExpires: refreshTokenExpiry,
+        },
+      });
+    } else if (role === "TEACHER") {
+      await prisma.teacher.update({
+        where: { id: user.id },
+        data: {
+          refreshToken,
+          refreshTokenExpires: refreshTokenExpiry,
+        },
+      });
+    } else if (role === "ADMIN") {
+      // If Admin does not have refreshToken fields, skip updating them
+      // await prisma.admin.update({
+      //   where: { id: user.id },
+      //   data: {
+      //     refreshToken,
+      //     refreshTokenExpires: refreshTokenExpiry,
+      //   },
+      // });
+    }
+
+    // Set refresh token as httpOnly cookie
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production", // Use secure in production
+      sameSite: "strict",
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+      path: "/api/auth/refresh",
+    });
 
     const response: LoginResponse = {
       message: "Login successful!",
-      token,
+      accessToken,
       user: {
         id: user.id,
         email: user.email,
@@ -364,6 +412,131 @@ export const getProfile = async (
     }
 
     res.status(200).json(profileData!);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// @desc    Refresh access token
+// @route   POST /api/auth/refresh
+export const refresh = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { refreshToken } = req.cookies;
+
+    if (!refreshToken) {
+      res.status(401).json({ message: "Refresh token not provided." });
+      return;
+    }
+
+    // Verify refresh token
+    let decoded: any;
+    try {
+      decoded = jwt.verify(
+        refreshToken,
+        process.env["JWT_REFRESH_SECRET"] || process.env["JWT_SECRET"]!
+      );
+    } catch (error) {
+      res.status(401).json({ message: "Invalid refresh token." });
+      return;
+    }
+
+    const { userId, email, role } = decoded;
+
+    // Find user and verify refresh token exists in database
+    let user: any;
+    if (role === "STUDENT") {
+      user = await prisma.student.findFirst({
+        where: { 
+          id: userId,
+          refreshToken,
+          refreshTokenExpires: { gt: new Date() }
+        },
+      });
+    } else if (role === "TEACHER") {
+      user = await prisma.teacher.findFirst({
+        where: { 
+          id: userId,
+          refreshToken,
+          refreshTokenExpires: { gt: new Date() }
+        },
+      });
+    } else if (role === "ADMIN") {
+      user = await prisma.admin.findFirst({
+        where: { 
+          id: userId,
+          refreshToken,
+          refreshTokenExpires: { gt: new Date() }
+        },
+      });
+    }
+
+    if (!user) {
+      res.status(401).json({ message: "Invalid or expired refresh token." });
+      return;
+    }
+
+    // Generate new access token
+    const accessToken = jwt.sign(
+      { userId: user.id, email: user.email, role: role },
+      process.env["JWT_SECRET"]!,
+      { expiresIn: "15m" }
+    );
+
+    const response: RefreshTokenResponse = {
+      accessToken,
+    };
+
+    res.status(200).json(response);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// @desc    Logout user
+// @route   POST /api/auth/logout
+export const logout = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { userId, role } = req.user;
+    const { refreshToken } = req.cookies;
+
+    // Clear refresh token from database
+    if (role === "STUDENT") {
+      await prisma.student.update({
+        where: { id: userId },
+        data: {
+          refreshToken: null,
+          refreshTokenExpires: null,
+        },
+      });
+    } else if (role === "TEACHER") {
+      await prisma.teacher.update({
+        where: { id: userId },
+        data: {
+          refreshToken: null,
+          refreshTokenExpires: null,
+        },
+      });
+    } else if (role === "ADMIN") {
+      await prisma.admin.update({
+        where: { id: userId },
+        data: {
+          refreshToken: null,
+          refreshTokenExpires: null,
+        },
+      });
+    }
+
+    // Clear refresh token cookie
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/api/auth/refresh",
+    });
+
+    res.status(204).send();
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
