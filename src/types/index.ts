@@ -146,7 +146,7 @@ export interface ApiResponse<T = any> {
 
 export interface LoginResponse {
   message: string;
-  token: string;
+  accessToken: string;
   user: {
     id: string;
     email: string;
@@ -154,6 +154,10 @@ export interface LoginResponse {
     firstName: string;
     lastName: string;
   };
+}
+
+export interface RefreshTokenResponse {
+  accessToken: string;
 }
 
 export interface ProfileResponse {
