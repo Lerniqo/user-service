@@ -1,4 +1,4 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, Express } from 'express';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import authRoutes from './api/routes/auth.routes';
@@ -11,7 +11,7 @@ import cors from "cors";
 // Load environment variables
 dotenv.config();
 
-const app = express();
+const app: Express = express();
 
 // Middlewares
 app.use(express.json()); // To parse JSON bodies

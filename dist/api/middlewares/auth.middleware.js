@@ -11,7 +11,7 @@ const protect = (req, res, next) => {
         req.headers.authorization.startsWith('Bearer')) {
         try {
             token = req.headers.authorization.split(' ')[1];
-            const decoded = jsonwebtoken_1.default.verify(token, process.env.JWT_SECRET);
+            const decoded = jsonwebtoken_1.default.verify(token, process.env['JWT_SECRET']);
             req.user = decoded;
             next();
         }
