@@ -38,7 +38,6 @@ jobs:
           REGION=us-east-1
           IMAGE_NAME=ecs-multi-app-dev-user-service
           IMAGE_TAG=${GITHUB_SHA::8}
-          docker tag $IMAGE_NAME:$IMAGE_TAG $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$IMAGE_NAME:$IMAGE_TAG
           docker tag $IMAGE_NAME:$IMAGE_TAG $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$IMAGE_NAME:latest
 
       - name: Push Docker image to ECR
@@ -47,7 +46,6 @@ jobs:
           REGION=us-east-1
           IMAGE_NAME=ecs-multi-app-dev-user-service
           IMAGE_TAG=${GITHUB_SHA::8}
-          docker push $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$IMAGE_NAME:$IMAGE_TAG
           docker push $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$IMAGE_NAME:latest
 
       - name: Output image URI
