@@ -53,10 +53,6 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 
-# Copy startup script
-COPY start.sh ./start.sh
-RUN chmod +x start.sh
-
 # Create uploads directory
 RUN mkdir -p uploads
 
@@ -72,6 +68,3 @@ EXPOSE 3000
 # Add health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" || exit 1
-
-# Start the application using startup script
-CMD ["./start.sh"]
