@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Router } from 'express';
 import { body } from 'express-validator';
 import multer from 'multer';
 import {
@@ -8,7 +8,7 @@ import {
 } from '../controllers/user.controller';
 import { protect } from '../middlewares/auth.middleware';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // File upload setup (uploads folder must exist)
 const storage = multer.diskStorage({

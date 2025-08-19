@@ -23,6 +23,10 @@ const loginValidation = [
 router.post('/register', registerValidation, auth_controller_1.register);
 router.post('/verify-email', auth_controller_1.verifyEmail);
 router.post('/login', loginValidation, auth_controller_1.login);
+router.post('/refresh', auth_controller_1.refresh);
+router.post('/logout', auth_middleware_1.protect, auth_controller_1.logout);
+router.post('/forgot-password', auth_controller_1.forgotPassword);
+router.post('/reset-password', auth_controller_1.resetPassword);
 router.get('/profile', auth_middleware_1.protect, auth_controller_1.getProfile);
 exports.default = router;
 //# sourceMappingURL=auth.routes.js.map

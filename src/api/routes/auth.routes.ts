@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Router } from 'express';
 import { body } from 'express-validator';
 import {
   register,
@@ -13,7 +13,7 @@ import {
 } from '../controllers/auth.controller';
 import { protect } from '../middlewares/auth.middleware';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 const registerValidation = [
   body('email', 'Please include a valid email').isEmail(),

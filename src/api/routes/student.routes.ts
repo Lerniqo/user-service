@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Router } from 'express';
 import { body } from 'express-validator';
 import {
   getStudentProfile,
@@ -8,7 +8,7 @@ import {
 } from '../controllers/student.controller';
 import { protect } from '../middlewares/auth.middleware';
 
-const router = express.Router();
+const router: Router = express.Router();
 
 // 🔒 All routes require authentication
 router.use(protect);
