@@ -49,9 +49,8 @@ COPY --from=builder /app/dist ./dist
 # Copy Prisma schema and migrations
 COPY --from=builder /app/prisma ./prisma
 
-# Copy node_modules with Prisma client from builder
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+# Generate Prisma client in production stage
+RUN pnpm prisma generate
 
 # Create uploads directory
 RUN mkdir -p uploads
