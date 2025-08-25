@@ -14,7 +14,7 @@ import {
   SystemStatistics,
 } from '../../types';
 
-// POST /api/users/register - Step 1: Basic registration
+// POST /users/register - Step 1: Basic registration
 export const register = async (req: Request, res: Response): Promise<void> => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -69,7 +69,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// POST /api/users/verify-email
+// POST /users/verify-email
 export const verifyEmail = async (req: Request, res: Response): Promise<void> => {
   try {
     const { code } = req.body;
@@ -108,7 +108,7 @@ export const verifyEmail = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-// POST /api/users/complete-profile - Step 2: Complete profile after verification
+// POST /users/complete-profile - Step 2: Complete profile after verification
 export const completeProfile = async (req: Request, res: Response): Promise<void> => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -199,7 +199,7 @@ export const completeProfile = async (req: Request, res: Response): Promise<void
   }
 };
 
-// POST /api/users/login
+// POST /users/login
 export const login = async (req: Request, res: Response): Promise<void> => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -279,7 +279,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// POST /api/users/refresh-token
+// POST /users/refresh-token
 export const refreshToken = async (req: Request, res: Response): Promise<void> => {
   try {
     const { refreshToken } = req.cookies;
@@ -323,7 +323,7 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
   }
 };
 
-// POST /api/users/logout
+// POST /users/logout
 export const logout = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { refreshToken } = req.cookies;
@@ -351,7 +351,7 @@ export const logout = async (req: AuthenticatedRequest, res: Response): Promise<
   }
 };
 
-// GET /api/users/me
+// GET /users/me
 export const getMyProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { userId } = req.user;
@@ -399,7 +399,7 @@ export const getMyProfile = async (req: AuthenticatedRequest, res: Response): Pr
   }
 };
 
-// PUT /api/users/me
+// PUT /users/me
 export const updateMyProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { userId, role } = req.user;
@@ -492,7 +492,7 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response):
   }
 };
 
-// DELETE /api/users/me
+// DELETE /users/me
 export const deleteMyAccount = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { userId } = req.user;
@@ -512,7 +512,7 @@ export const deleteMyAccount = async (req: AuthenticatedRequest, res: Response):
   }
 };
 
-// GET /api/users/teachers
+// GET /users/teachers
 export const getAllTeachers = async (req: Request, res: Response): Promise<void> => {
   try {
     const teachers = await prisma.user.findMany({
@@ -541,7 +541,7 @@ export const getAllTeachers = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// GET /api/users/teachers/:id
+// GET /users/teachers/:id
 export const getTeacherById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -580,7 +580,7 @@ export const getTeacherById = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// GET /api/users/students/:id (Admin only)
+// GET /users/students/:id (Admin only)
 export const getStudentById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -619,7 +619,7 @@ export const getStudentById = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// GET /api/users (Admin only)
+// GET /users (Admin only)
 export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
   try {
     const users = await prisma.user.findMany({
@@ -669,7 +669,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
   }
 };
 
-// PUT /api/users/:id (Admin only)
+// PUT /users/:id (Admin only)
 export const updateUserById = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
@@ -780,7 +780,7 @@ export const updateUserById = async (req: Request, res: Response): Promise<void>
 };
 
 // @desc Change user password  
-// @route PUT /api/user/change-password
+// @route PUT /user/change-password
 export const changePassword = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { oldPassword, newPassword } = req.body;
@@ -816,7 +816,7 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response): 
 };
 
 // @desc Upload profile photo
-// @route POST /api/user/upload-photo  
+// @route POST /user/upload-photo  
 export const uploadProfilePhoto = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     if (!req.file) {

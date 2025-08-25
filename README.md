@@ -67,29 +67,29 @@ npm start       # Run production build
 ### Two-Step Registration Flow
 
 #### Step 1: Basic Registration
-- **POST** `/api/users/register` - Register with email, password, and role only
+- **POST** `/users/register` - Register with email, password, and role only
   - Body: `{ email, password, role }`
   - Returns: Basic user info with verification instructions
 
 #### Step 2: Complete Profile (After Email Verification)
-- **POST** `/api/users/verify-email` - Verify email address
+- **POST** `/users/verify-email` - Verify email address
   - Body: `{ code }`
   - Returns: Verification status and profile completion status
-- **POST** `/api/users/complete-profile/:userId` - Complete profile with personal information
+- **POST** `/users/complete-profile/:userId` - Complete profile with personal information
   - Body: Role-specific data (fullName + role-specific fields)
   - Returns: Complete user profile
 
 ### Core Routes
-- **POST** `/api/users/login` - User login (requires completed profile)
-- **GET** `/api/users/me` - Get current user profile
-- **PUT** `/api/users/me` - Update profile
-- **POST** `/api/users/logout` - Logout
-- **GET** `/api/users/teachers` - List all teachers (public)
-- **GET** `/api/users/teachers/:id` - Get teacher profile (public)
+- **POST** `/users/login` - User login (requires completed profile)
+- **GET** `/users/me` - Get current user profile
+- **PUT** `/users/me` - Update profile
+- **POST** `/users/logout` - Logout
+- **GET** `/users/teachers` - List all teachers (public)
+- **GET** `/users/teachers/:id` - Get teacher profile (public)
 
 ### Additional Routes
-- **PUT** `/api/user/change-password` - Change password
-- **POST** `/api/user/upload-photo` - Upload profile photo
+- **PUT** `/user/change-password` - Change password
+- **POST** `/user/upload-photo` - Upload profile photo
 
 ## 🗄 Database Schema
 
