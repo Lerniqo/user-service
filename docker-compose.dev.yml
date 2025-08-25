@@ -1,7 +1,10 @@
+version: '3.8'
+
 services:
+  # PostgreSQL Database for Development
   postgresql:
     image: postgres:latest
-    container_name: user-service-postgres
+    container_name: user-service-postgres-dev
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-userservice}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -9,7 +12,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_dev:/var/lib/postgresql/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
@@ -17,5 +20,40 @@ services:
       timeout: 5s
       retries: 5
 
+  # User Service Application (Development)
+  user-service-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: user-service-dev
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      # Database - using container network for containerized development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@postgresql:5432/${POSTGRES_DB:-userservice}
+      # Server
+      PORT: ${PORT:-4001}
+      # Authentication
+      SECRET_KEY: ${SECRET_KEY:-your-super-secret-key-change-this-in-production}
+      # Email Configuration
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-your-email@gmail.com}
+      SMTP_PASS: ${SMTP_PASS:-your-app-password}
+      # CORS
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+    ports:
+      - "${PORT:-4001}:${PORT:-4001}"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - uploads_data_dev:/app/uploads
+    restart: unless-stopped
+    command: npm run dev
+
 volumes:
-  postgres_data:
+  postgres_data_dev:
+  uploads_data_dev:

@@ -61,12 +61,12 @@ RUN chown -R nodejs:nodejs /app
 # Switch to non-root user
 USER nodejs
 
-# Expose the port the app runs on
-EXPOSE 3000
+# Expose the port the app runs on (default 4001, configurable via ENV)
+EXPOSE ${PORT:-4001}
 
-# Add health check
+# Add health check (use dynamic port)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" || exit 1
+  CMD node -e "require('http').get('http://localhost:' + (process.env.PORT || 4001) + '/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" || exit 1
 
 # Start the application
 CMD ["node", "dist/server.js"]
