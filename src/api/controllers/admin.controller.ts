@@ -6,8 +6,11 @@ import { AuthenticatedRequest, UpdateAdminAdministrativeData, SystemStatistics }
 // @route GET /api/admin/profile
 export const getAdminProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const admin = await prisma.admin.findUnique({
-      where: { id: req.user.userId },
+    const admin = await prisma.user.findUnique({
+      where: { 
+        id: req.user.userId,
+        role: 'Admin'
+      },
     });
 
     if (!admin) {
@@ -20,13 +23,8 @@ export const getAdminProfile = async (req: AuthenticatedRequest, res: Response):
       admin: {
         id: admin.id,
         email: admin.email,
-        firstName: admin.firstName,
-        lastName: admin.lastName,
-        adminId: admin.adminId,
-        department: admin.department,
-        designation: admin.designation,
-        permissions: admin.permissions,
-        joiningDate: admin.joiningDate,
+        fullName: admin.fullName,
+        role: admin.role,
         isActive: admin.isActive,
         isVerified: admin.isVerified,
         profileImage: admin.profileImage,
@@ -44,14 +42,15 @@ export const getAdminProfile = async (req: AuthenticatedRequest, res: Response):
 // @route PUT /api/admin/update-administrative
 export const updateAdministrativeDetails = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { department, designation, permissions }: UpdateAdminAdministrativeData = req.body;
+    const { fullName }: UpdateAdminAdministrativeData = req.body;
 
-    const updatedAdmin = await prisma.admin.update({
-      where: { id: req.user.userId },
+    const updatedAdmin = await prisma.user.update({
+      where: { 
+        id: req.user.userId,
+        role: 'Admin'
+      },
       data: {
-        department,
-        designation,
-        permissions: permissions || [],
+        fullName,
       },
     });
 
@@ -69,21 +68,18 @@ export const updateAdministrativeDetails = async (req: AuthenticatedRequest, res
 // @route GET /api/admin/all
 export const getAllAdmins = async (req: Request, res: Response): Promise<void> => {
   try {
-    const admins = await prisma.admin.findMany({
+    const admins = await prisma.user.findMany({
       where: {
+        role: 'Admin',
         isActive: true
       },
       select: {
         id: true,
         email: true,
-        firstName: true,
-        lastName: true,
+        fullName: true,
         profileImage: true,
         isVerified: true,
-        adminId: true,
-        department: true,
-        designation: true,
-        permissions: true,
+        role: true,
         isActive: true,
         createdAt: true,
       }
@@ -115,15 +111,15 @@ export const getSystemStatistics = async (req: Request, res: Response): Promise<
       unverifiedTeachers,
       unverifiedAdmins
     ] = await Promise.all([
-      prisma.student.count({ where: { isActive: true } }),
-      prisma.teacher.count({ where: { isActive: true } }),
-      prisma.admin.count({ where: { isActive: true } }),
-      prisma.student.count({ where: { isVerified: true, isActive: true } }),
-      prisma.teacher.count({ where: { isVerified: true, isActive: true } }),
-      prisma.admin.count({ where: { isVerified: true, isActive: true } }),
-      prisma.student.count({ where: { isVerified: false, isActive: true } }),
-      prisma.teacher.count({ where: { isVerified: false, isActive: true } }),
-      prisma.admin.count({ where: { isVerified: false, isActive: true } })
+      prisma.user.count({ where: { role: 'Student', isActive: true } }),
+      prisma.user.count({ where: { role: 'Teacher', isActive: true } }),
+      prisma.user.count({ where: { role: 'Admin', isActive: true } }),
+      prisma.user.count({ where: { role: 'Student', isVerified: true, isActive: true } }),
+      prisma.user.count({ where: { role: 'Teacher', isVerified: true, isActive: true } }),
+      prisma.user.count({ where: { role: 'Admin', isVerified: true, isActive: true } }),
+      prisma.user.count({ where: { role: 'Student', isVerified: false, isActive: true } }),
+      prisma.user.count({ where: { role: 'Teacher', isVerified: false, isActive: true } }),
+      prisma.user.count({ where: { role: 'Admin', isVerified: false, isActive: true } })
     ]);
 
     const totalUsers = totalStudents + totalTeachers + totalAdmins;
@@ -155,70 +151,32 @@ export const getSystemStatistics = async (req: Request, res: Response): Promise<
 export const getUsersByRole = async (req: Request, res: Response): Promise<void> => {
   try {
     const { role } = req.params;
-    
-    let users: any[] = [];
-    
-    if (role === 'STUDENT') {
-      users = await prisma.student.findMany({
-        where: { isActive: true },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          profileImage: true,
-          isVerified: true,
-          studentId: true,
-          department: true,
-          yearOfStudy: true,
-          semester: true,
-          gpa: true,
-          isActive: true,
-          createdAt: true,
-        }
-      });
-    } else if (role === 'TEACHER') {
-      users = await prisma.teacher.findMany({
-        where: { isActive: true },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          profileImage: true,
-          isVerified: true,
-          teacherId: true,
-          department: true,
-          designation: true,
-          qualification: true,
-          specialization: true,
-          experience: true,
-          isActive: true,
-          createdAt: true,
-        }
-      });
-    } else if (role === 'ADMIN') {
-      users = await prisma.admin.findMany({
-        where: { isActive: true },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          profileImage: true,
-          isVerified: true,
-          adminId: true,
-          department: true,
-          designation: true,
-          permissions: true,
-          isActive: true,
-          createdAt: true,
-        }
-      });
-    } else {
+
+    if (!['Student', 'Teacher', 'Admin'].includes(role)) {
       res.status(400).json({ message: 'Invalid role specified' });
       return;
     }
+
+    const users = await prisma.user.findMany({
+      where: { 
+        role: role as 'Student' | 'Teacher' | 'Admin',
+        isActive: true 
+      },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        profileImage: true,
+        isVerified: true,
+        role: true,
+        gradeLevel: true,
+        learningGoals: true,
+        qualifications: true,
+        experienceSummary: true,
+        isActive: true,
+        createdAt: true,
+      }
+    });
 
     res.status(200).json({
       message: `${role}s retrieved successfully`,

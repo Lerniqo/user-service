@@ -7,99 +7,38 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  STUDENT
-  TEACHER
-  ADMIN
+// Unified user table for all user types
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  password             String
+  role                 UserRole
+  fullName             String    @map("full_name")
+  
+  // Student-specific fields
+  gradeLevel           Int?      @map("grade_level")
+  learningGoals        String?   @map("learning_goals") @db.Text
+  
+  // Teacher-specific fields
+  qualifications       String?   @db.Text
+  experienceSummary    String?   @map("experience_summary") @db.Text
+  
+  // Common fields
+  isActive             Boolean   @default(true) @map("is_active")
+  isVerified           Boolean   @default(false) @map("is_verified")
+  profileImage         String?   @map("profile_image")
+  verificationCode     String?   @unique @map("verification_code")
+  passwordResetCode    String?   @unique @map("password_reset_code")
+  passwordResetExpires DateTime? @map("password_reset_expires")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@map("users")
 }
 
-model Student {
-  id                String   @id @default(cuid())
-  email             String   @unique
-  password          String
-  firstName         String
-  lastName          String
-  studentId         String   @unique
-  department        String?
-  yearOfStudy       Int?
-  semester          Int?
-  enrollmentDate    DateTime @default(now())
-  graduationDate    DateTime?
-  gpa               Float?   @default(0.0)
-  isVerified        Boolean  @default(false)
-  verificationToken String?  @unique
-  profileImage      String?
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Add these two:
-  passwordResetToken   String?   @unique
-  passwordResetExpires DateTime?
-  
-  // Refresh token support
-  refreshToken         String?   @unique
-  refreshTokenExpires  DateTime?
-
-  @@map("students")
-}
-
-model Teacher {
-  id                String   @id @default(cuid())
-  email             String   @unique
-  password          String
-  firstName         String
-  lastName          String
-  teacherId         String   @unique
-  department        String?
-  designation       String?
-  qualification     String?
-  specialization    String?
-  joiningDate       DateTime @default(now())
-  experience        Int?
-  isVerified        Boolean  @default(false)
-  verificationToken String?  @unique
-  profileImage      String?
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Add these two:
-  passwordResetToken   String?   @unique
-  passwordResetExpires DateTime?
-  
-  // Refresh token support
-  refreshToken         String?   @db.Text
-  refreshTokenExpires  DateTime?
-
-  @@map("teachers")
-}
-
-model Admin {
-  id                String   @id @default(cuid())
-  email             String   @unique
-  password          String
-  firstName         String
-  lastName          String
-  adminId           String   @unique
-  department        String?
-  designation       String?
-  permissions       String[]
-  joiningDate       DateTime @default(now())
-  isVerified        Boolean  @default(false)
-  verificationToken String?  @unique
-  profileImage      String?
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Add these two:
-  passwordResetToken   String?   @unique
-  passwordResetExpires DateTime?
-  
-  // Refresh token support
-  refreshToken         String?   @unique
-  refreshTokenExpires  DateTime?
-
-  @@map("admins")
+// Enum for user roles
+enum UserRole {
+  Student
+  Teacher
+  Admin
 }

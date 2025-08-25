@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { validationResult } from "express-validator";
 import prisma from "../../config/prisma";
@@ -8,14 +7,11 @@ import {
   sendVerificationEmail,
   sendPasswordResetEmail,
 } from "../../services/email.service";
+import { SecretCodeService } from "../../services/secretCode.service";
 import {
-  RegisterData,
-  LoginData,
-  VerifyEmailData,
-  LoginResponse,
-  RefreshTokenResponse,
-  ProfileResponse,
   AuthenticatedRequest,
+  LoginResponse,
+  UserProfileResponse,
 } from "../../types";
 
 // @desc    Register a new user
@@ -29,92 +25,52 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
   try {
     const {
-      firstName,
-      lastName,
       email,
       password,
-      role = "STUDENT",
-      ...roleSpecificData
-    }: any = req.body;
+      role = "Student",
+      firstName,
+      lastName,
+      gradeLevel,
+      qualifications,
+    } = req.body;
+    
+    const fullName = `${firstName} ${lastName}`;
 
-    // Check if email exists in any of the tables
-    const existingStudent = await prisma.student.findUnique({
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
       where: { email },
     });
-    const existingTeacher = await prisma.teacher.findUnique({
-      where: { email },
-    });
-    const existingAdmin = await prisma.admin.findUnique({ where: { email } });
 
-    if (existingStudent || existingTeacher || existingAdmin) {
+    if (existingUser) {
       res.status(400).json({ message: "User with this email already exists." });
       return;
     }
 
     const hashedPassword = await bcrypt.hash(password, 12);
-    const verificationToken = crypto.randomBytes(32).toString("hex");
+    const verificationCode = SecretCodeService.generateVerificationCode();
 
-    let user: any;
-    const userData = {
-      firstName,
-      lastName,
-      email,
-      password: hashedPassword,
-      verificationToken,
-    };
+    // Create user with unified model
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        role: role as "Student" | "Teacher" | "Admin",
+        fullName,
+        gradeLevel: role === "Student" ? gradeLevel : null,
+        qualifications: role === "Teacher" ? qualifications : null,
+        verificationCode,
+      },
+    });
 
-    // Create user based on role
-    if (role === "STUDENT") {
-      user = await prisma.student.create({
-        data: {
-          ...userData,
-          studentId: `STU${Date.now()}`,
-          department: roleSpecificData.department || null,
-          yearOfStudy: roleSpecificData.yearOfStudy || null,
-          semester: roleSpecificData.semester || null,
-        },
-      });
-    } else if (role === "TEACHER") {
-      user = await prisma.teacher.create({
-        data: {
-          ...userData,
-          teacherId: `TCH${Date.now()}`,
-          department: roleSpecificData.department || null,
-          designation: roleSpecificData.designation || null,
-          qualification: roleSpecificData.qualification || null,
-          specialization: roleSpecificData.specialization || null,
-          experience: roleSpecificData.experience || null,
-        },
-      });
-    } else if (role === "ADMIN") {
-      user = await prisma.admin.create({
-        data: {
-          ...userData,
-          adminId: `ADM${Date.now()}`,
-          department: roleSpecificData.department || null,
-          designation: roleSpecificData.designation || null,
-          permissions: roleSpecificData.permissions || [],
-        },
-      });
-    } else {
-      res.status(400).json({ message: "Invalid role specified." });
-      return;
-    }
-
-    await sendVerificationEmail(user.email, verificationToken);
+    await sendVerificationEmail(user.email, verificationCode);
 
     res.status(201).json({
-      message:
-        "Registration successful! Please check your email to verify your account.",
+      message: "Registration successful! Please check your email to verify your account.",
       user: {
         id: user.id,
         email: user.email,
-        role: role,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        ...(user.studentId && { studentId: user.studentId }),
-        ...(user.teacherId && { teacherId: user.teacherId }),
-        ...(user.adminId && { adminId: user.adminId }),
+        role: user.role,
+        fullName: user.fullName,
       },
     });
   } catch (error) {
@@ -123,80 +79,44 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-// @desc    Verify user email
+// @desc    Verify email
 // @route   POST /api/auth/verify-email
-export const verifyEmail = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const verifyEmail = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { token }: VerifyEmailData = req.body;
-    if (!token) {
-      res.status(400).json({ message: "Token is required." });
+    const { code } = req.body;
+
+    if (!code) {
+      res.status(400).json({ message: "Verification code is required." });
       return;
     }
 
-    // Check in all tables for the verification token
-    let user: any = await prisma.student.findUnique({
-      where: { verificationToken: token },
+    const user = await prisma.user.findFirst({
+      where: { verificationCode: code },
     });
 
     if (!user) {
-      user = await prisma.teacher.findUnique({
-        where: { verificationToken: token },
-      });
-    }
-
-    if (!user) {
-      user = await prisma.admin.findUnique({
-        where: { verificationToken: token },
-      });
-    }
-
-    if (!user) {
-      res
-        .status(400)
-        .json({ message: "Invalid or expired verification token." });
+      res.status(400).json({ message: "Invalid or expired verification code." });
       return;
     }
 
-    // Update the appropriate table
-    if (user.studentId) {
-      await prisma.student.update({
-        where: { id: user.id },
-        data: {
-          isVerified: true,
-          verificationToken: null,
-        },
-      });
-    } else if (user.teacherId) {
-      await prisma.teacher.update({
-        where: { id: user.id },
-        data: {
-          isVerified: true,
-          verificationToken: null,
-        },
-      });
-    } else if (user.adminId) {
-      await prisma.admin.update({
-        where: { id: user.id },
-        data: {
-          isVerified: true,
-          verificationToken: null,
-        },
-      });
-    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        verificationCode: null,
+      },
+    });
 
-    res
-      .status(200)
-      .json({ message: "Email verified successfully! You can now log in." });
+    res.status(200).json({ 
+      message: "Email verified successfully! You can now log in." 
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-// @desc    Login a user
+// @desc    Login user
 // @route   POST /api/auth/login
 export const login = async (req: Request, res: Response): Promise<void> => {
   const errors = validationResult(req);
@@ -206,21 +126,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
   }
 
   try {
-    const { email, password }: LoginData = req.body;
+    const { email, password } = req.body;
 
-    // Check in all tables for the user
-    let user: any = await prisma.student.findUnique({ where: { email } });
-    let role: "STUDENT" | "TEACHER" | "ADMIN" = "STUDENT";
-
-    if (!user) {
-      user = await prisma.teacher.findUnique({ where: { email } });
-      role = "TEACHER";
-    }
-
-    if (!user) {
-      user = await prisma.admin.findUnique({ where: { email } });
-      role = "ADMIN";
-    }
+    const user = await prisma.user.findUnique({ 
+      where: { email } 
+    });
 
     if (!user) {
       res.status(401).json({ message: "Invalid credentials." });
@@ -228,9 +138,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     if (!user.isVerified) {
-      res
-        .status(401)
-        .json({ message: "Email not verified. Please check your inbox." });
+      res.status(401).json({ 
+        message: "Email not verified. Please check your inbox." 
+      });
       return;
     }
 
@@ -240,72 +150,25 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Generate tokens
-    const accessToken = jwt.sign(
-      { userId: user.id, email: user.email, role: role },
-      process.env["JWT_SECRET"]!,
-      { expiresIn: "15m" } // Short-lived access token
+    // Generate session code using the new service
+    const sessionCode = SecretCodeService.generateSessionCode(
+      user.id, 
+      user.email, 
+      user.role
     );
-
-    const refreshToken = jwt.sign(
-      { userId: user.id, email: user.email, role: role },
-      process.env["JWT_REFRESH_SECRET"] || process.env["JWT_SECRET"]!,
-      { expiresIn: "7d" } // Long-lived refresh token
-    );
-
-    // Calculate refresh token expiry
-    const refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
-
-    // Store refresh token in database
-    if (role === "STUDENT") {
-      await prisma.student.update({
-        where: { id: user.id },
-        data: {
-          refreshToken,
-          refreshTokenExpires: refreshTokenExpiry,
-        },
-      });
-    } else if (role === "TEACHER") {
-      await prisma.teacher.update({
-        where: { id: user.id },
-        data: {
-          refreshToken,
-          refreshTokenExpires: refreshTokenExpiry,
-        },
-      });
-    } else if (role === "ADMIN") {
-      // If Admin does not have refreshToken fields, skip updating them
-      // await prisma.admin.update({
-      //   where: { id: user.id },
-      //   data: {
-      //     refreshToken,
-      //     refreshTokenExpires: refreshTokenExpiry,
-      //   },
-      // });
-    }
-
-    // Set refresh token as httpOnly cookie
-    res.cookie("refreshToken", refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production", // Use secure in production
-      sameSite: "strict",
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      path: "/api/auth/refresh",
-    });
 
     const response: LoginResponse = {
       message: "Login successful!",
-      accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: role,
-        firstName: user.firstName,
-        lastName: user.lastName,
-      },
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      fullName: user.fullName,
     };
 
-    res.status(200).json(response);
+    res.status(200).json({
+      ...response,
+      sessionCode,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -314,180 +177,35 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
 // @desc    Get user profile
 // @route   GET /api/auth/profile
-export const getProfile = async (
-  req: AuthenticatedRequest,
-  res: Response
-): Promise<void> => {
+export const getProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { userId, role } = req.user;
+    const { userId } = req.user;
 
-    let user: any;
-    let profileData: ProfileResponse;
-
-    // Get user from appropriate table based on role
-    if (role === "STUDENT") {
-      user = await prisma.student.findUnique({
-        where: { id: userId },
-      });
-      if (user) {
-        profileData = {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: "STUDENT",
-          profileImage: user.profileImage || undefined,
-          isVerified: user.isVerified,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-          studentInfo: {
-            studentId: user.studentId,
-            department: user.department || undefined,
-            yearOfStudy: user.yearOfStudy || undefined,
-            semester: user.semester || undefined,
-            enrollmentDate: user.enrollmentDate,
-            graduationDate: user.graduationDate || undefined,
-            gpa: user.gpa || undefined,
-            isActive: user.isActive,
-          },
-        };
-      }
-    } else if (role === "TEACHER") {
-      user = await prisma.teacher.findUnique({
-        where: { id: userId },
-      });
-      if (user) {
-        profileData = {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: "TEACHER",
-          profileImage: user.profileImage || undefined,
-          isVerified: user.isVerified,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-          teacherInfo: {
-            teacherId: user.teacherId,
-            department: user.department || undefined,
-            designation: user.designation || undefined,
-            qualification: user.qualification || undefined,
-            specialization: user.specialization || undefined,
-            joiningDate: user.joiningDate,
-            experience: user.experience || undefined,
-            isActive: user.isActive,
-          },
-        };
-      }
-    } else if (role === "ADMIN") {
-      user = await prisma.admin.findUnique({
-        where: { id: userId },
-      });
-      if (user) {
-        profileData = {
-          id: user.id,
-          email: user.email,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          role: "ADMIN",
-          profileImage: user.profileImage || undefined,
-          isVerified: user.isVerified,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-          adminInfo: {
-            adminId: user.adminId,
-            department: user.department || undefined,
-            designation: user.designation || undefined,
-            permissions: user.permissions,
-            joiningDate: user.joiningDate,
-            isActive: user.isActive,
-          },
-        };
-      }
-    }
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
 
     if (!user) {
       res.status(404).json({ message: "User not found." });
       return;
     }
 
-    res.status(200).json(profileData!);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Internal Server Error" });
-  }
-};
-
-// @desc    Refresh access token
-// @route   POST /api/auth/refresh
-export const refresh = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { refreshToken } = req.cookies;
-
-    if (!refreshToken) {
-      res.status(401).json({ message: "Refresh token not provided." });
-      return;
-    }
-
-    // Verify refresh token
-    let decoded: any;
-    try {
-      decoded = jwt.verify(
-        refreshToken,
-        process.env["JWT_REFRESH_SECRET"] || process.env["JWT_SECRET"]!
-      );
-    } catch (error) {
-      res.status(401).json({ message: "Invalid refresh token." });
-      return;
-    }
-
-    const { userId, email, role } = decoded;
-
-    // Find user and verify refresh token exists in database
-    let user: any;
-    if (role === "STUDENT") {
-      user = await prisma.student.findFirst({
-        where: { 
-          id: userId,
-          refreshToken,
-          refreshTokenExpires: { gt: new Date() }
-        },
-      });
-    } else if (role === "TEACHER") {
-      user = await prisma.teacher.findFirst({
-        where: { 
-          id: userId,
-          refreshToken,
-          refreshTokenExpires: { gt: new Date() }
-        },
-      });
-    } else if (role === "ADMIN") {
-      user = await prisma.admin.findFirst({
-        where: { 
-          id: userId,
-          refreshToken,
-          refreshTokenExpires: { gt: new Date() }
-        },
-      });
-    }
-
-    if (!user) {
-      res.status(401).json({ message: "Invalid or expired refresh token." });
-      return;
-    }
-
-    // Generate new access token
-    const accessToken = jwt.sign(
-      { userId: user.id, email: user.email, role: role },
-      process.env["JWT_SECRET"]!,
-      { expiresIn: "15m" }
-    );
-
-    const response: RefreshTokenResponse = {
-      accessToken,
+    const profileData: UserProfileResponse = {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      fullName: user.fullName,
+      gradeLevel: user.gradeLevel || undefined,
+      learningGoals: user.learningGoals || undefined,
+      qualifications: user.qualifications || undefined,
+      experienceSummary: user.experienceSummary || undefined,
+      profileImage: user.profileImage || undefined,
+      isVerified: user.isVerified,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
-    res.status(200).json(response);
+    res.status(200).json(profileData);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -498,139 +216,63 @@ export const refresh = async (req: Request, res: Response): Promise<void> => {
 // @route   POST /api/auth/logout
 export const logout = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
-    const { userId, role } = req.user;
-    const { refreshToken } = req.cookies;
-
-    // Clear refresh token from database
-    if (role === "STUDENT") {
-      await prisma.student.update({
-        where: { id: userId },
-        data: {
-          refreshToken: null,
-          refreshTokenExpires: null,
-        },
-      });
-    } else if (role === "TEACHER") {
-      await prisma.teacher.update({
-        where: { id: userId },
-        data: {
-          refreshToken: null,
-          refreshTokenExpires: null,
-        },
-      });
-    } else if (role === "ADMIN") {
-      await prisma.admin.update({
-        where: { id: userId },
-        data: {
-          refreshToken: null,
-          refreshTokenExpires: null,
-        },
-      });
-    }
-
-    // Clear refresh token cookie
-    res.clearCookie("refreshToken", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/api/auth/refresh",
-    });
-
-    res.status(204).send();
+    // With session codes, we don't need to do anything on the server side
+    // The session code will expire naturally
+    res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-// -------------------- PASSWORD RESET FLOW --------------------
-
-// @desc    Request password reset email
+// @desc    Forgot password
 // @route   POST /api/auth/forgot-password
-export const forgotPassword = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
   const { email } = req.body;
+
   if (!email) {
     res.status(400).json({ message: "Email is required." });
     return;
   }
 
   try {
-    // Find user in any table
-    let user: any = await prisma.student.findUnique({ where: { email } });
-    let userRole: "STUDENT" | "TEACHER" | "ADMIN" | null = "STUDENT";
+    const user = await prisma.user.findUnique({ 
+      where: { email } 
+    });
 
     if (!user) {
-      user = await prisma.teacher.findUnique({ where: { email } });
-      userRole = "TEACHER";
-    }
-    if (!user) {
-      user = await prisma.admin.findUnique({ where: { email } });
-      userRole = "ADMIN";
-    }
-    if (!user) {
-      // For security, don't reveal if email doesn't exist
-      res
-        .status(200)
-        .json({
-          message: "If the email exists, a password reset link has been sent.",
-        });
+      // Don't reveal if email exists or not for security
+      res.status(200).json({
+        message: "If the email exists, a password reset link has been sent.",
+      });
       return;
     }
 
-    // Generate reset token and expiry (e.g., 1 hour)
     const resetToken = crypto.randomBytes(32).toString("hex");
-    const resetTokenExpiry = new Date(Date.now() + 3600 * 1000); // 1 hour from now
+    const resetTokenExpiry = new Date(Date.now() + 3600 * 1000); // 1 hour
 
-    // Update user with reset token and expiry
-    if (userRole === "STUDENT") {
-      await prisma.student.update({
-        where: { id: user.id },
-        data: {
-          passwordResetToken: resetToken,
-          passwordResetExpires: resetTokenExpiry,
-        },
-      });
-    } else if (userRole === "TEACHER") {
-      await prisma.teacher.update({
-        where: { id: user.id },
-        data: {
-          passwordResetToken: resetToken,
-          passwordResetExpires: resetTokenExpiry,
-        },
-      });
-    } else if (userRole === "ADMIN") {
-      await prisma.admin.update({
-        where: { id: user.id },
-        data: {
-          passwordResetToken: resetToken,
-          passwordResetExpires: resetTokenExpiry,
-        },
-      });
-    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetCode: resetToken,
+        passwordResetExpires: resetTokenExpiry,
+      },
+    });
 
-    // Send password reset email
     await sendPasswordResetEmail(email, resetToken);
 
-    res
-      .status(200)
-      .json({
-        message: "If the email exists, a password reset link has been sent.",
-      });
+    res.status(200).json({
+      message: "If the email exists, a password reset link has been sent.",
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
 
-// @desc    Reset password using token
+// @desc    Reset password
 // @route   POST /api/auth/reset-password
-export const resetPassword = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
   const { token, newPassword } = req.body;
 
   if (!token || !newPassword) {
@@ -639,76 +281,34 @@ export const resetPassword = async (
   }
 
   try {
-    // Find user by reset token and check expiry
-    let user: any = await prisma.student.findFirst({
+    const user = await prisma.user.findFirst({
       where: {
-        passwordResetToken: token,
-        passwordResetExpires: { gt: new Date() }, // expiry in future
+        passwordResetCode: token,
+        passwordResetExpires: { gt: new Date() },
       },
     });
-    let userRole: "STUDENT" | "TEACHER" | "ADMIN" | null = "STUDENT";
 
     if (!user) {
-      user = await prisma.teacher.findFirst({
-        where: {
-          passwordResetToken: token,
-          passwordResetExpires: { gt: new Date() },
-        },
+      res.status(400).json({ 
+        message: "Invalid or expired password reset token." 
       });
-      userRole = "TEACHER";
-    }
-    if (!user) {
-      user = await prisma.admin.findFirst({
-        where: {
-          passwordResetToken: token,
-          passwordResetExpires: { gt: new Date() },
-        },
-      });
-      userRole = "ADMIN";
-    }
-
-    if (!user) {
-      res
-        .status(400)
-        .json({ message: "Invalid or expired password reset token." });
       return;
     }
 
-    // Hash new password
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-    // Update user's password and clear reset token fields
-    if (userRole === "STUDENT") {
-      await prisma.student.update({
-        where: { id: user.id },
-        data: {
-          password: hashedPassword,
-          passwordResetToken: null,
-        },
-      });
-    } else if (userRole === "TEACHER") {
-      await prisma.teacher.update({
-        where: { id: user.id },
-        data: {
-          password: hashedPassword,
-        },
-      });
-    } else if (userRole === "ADMIN") {
-      await prisma.admin.update({
-        where: { id: user.id },
-        data: {
-          password: hashedPassword,
-          passwordResetToken: null,
-          passwordResetExpires: null,
-        },
-      });
-    }
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        passwordResetCode: null,
+        passwordResetExpires: null,
+      },
+    });
 
-    res
-      .status(200)
-      .json({
-        message: "Password has been reset successfully. You can now log in.",
-      });
+    res.status(200).json({
+      message: "Password has been reset successfully. You can now log in.",
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });

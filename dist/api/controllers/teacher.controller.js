@@ -3,12 +3,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTeachersByDesignation = exports.getTeachersByDepartment = exports.getAllTeachers = exports.updateProfessionalDetails = exports.getTeacherProfile = void 0;
+exports.getTeachersByQualification = exports.getAllTeachers = exports.updateProfessionalDetails = exports.getTeacherProfile = void 0;
 const prisma_1 = __importDefault(require("../../config/prisma"));
 const getTeacherProfile = async (req, res) => {
     try {
-        const teacher = await prisma_1.default.teacher.findUnique({
-            where: { id: req.user.userId },
+        const teacher = await prisma_1.default.user.findUnique({
+            where: {
+                id: req.user.userId,
+                role: 'Teacher'
+            },
         });
         if (!teacher) {
             res.status(404).json({ message: 'Teacher profile not found' });
@@ -19,15 +22,10 @@ const getTeacherProfile = async (req, res) => {
             teacher: {
                 id: teacher.id,
                 email: teacher.email,
-                firstName: teacher.firstName,
-                lastName: teacher.lastName,
-                teacherId: teacher.teacherId,
-                department: teacher.department,
-                designation: teacher.designation,
-                qualification: teacher.qualification,
-                specialization: teacher.specialization,
-                joiningDate: teacher.joiningDate,
-                experience: teacher.experience,
+                fullName: teacher.fullName,
+                role: teacher.role,
+                qualifications: teacher.qualifications,
+                experienceSummary: teacher.experienceSummary,
                 isActive: teacher.isActive,
                 isVerified: teacher.isVerified,
                 profileImage: teacher.profileImage,
@@ -44,15 +42,15 @@ const getTeacherProfile = async (req, res) => {
 exports.getTeacherProfile = getTeacherProfile;
 const updateProfessionalDetails = async (req, res) => {
     try {
-        const { department, designation, qualification, specialization, experience } = req.body;
-        const updatedTeacher = await prisma_1.default.teacher.update({
-            where: { id: req.user.userId },
+        const { qualifications, experienceSummary } = req.body;
+        const updatedTeacher = await prisma_1.default.user.update({
+            where: {
+                id: req.user.userId,
+                role: 'Teacher'
+            },
             data: {
-                department,
-                designation,
-                qualification,
-                specialization,
-                experience: experience ? parseInt(experience.toString()) : undefined,
+                qualifications,
+                experienceSummary,
             },
         });
         res.status(200).json({
@@ -68,23 +66,20 @@ const updateProfessionalDetails = async (req, res) => {
 exports.updateProfessionalDetails = updateProfessionalDetails;
 const getAllTeachers = async (req, res) => {
     try {
-        const teachers = await prisma_1.default.teacher.findMany({
+        const teachers = await prisma_1.default.user.findMany({
             where: {
+                role: 'Teacher',
                 isActive: true
             },
             select: {
                 id: true,
                 email: true,
-                firstName: true,
-                lastName: true,
+                fullName: true,
                 profileImage: true,
                 isVerified: true,
-                teacherId: true,
-                department: true,
-                designation: true,
-                qualification: true,
-                specialization: true,
-                experience: true,
+                role: true,
+                qualifications: true,
+                experienceSummary: true,
                 isActive: true,
                 createdAt: true,
             }
@@ -101,74 +96,39 @@ const getAllTeachers = async (req, res) => {
     }
 };
 exports.getAllTeachers = getAllTeachers;
-const getTeachersByDepartment = async (req, res) => {
+const getTeachersByQualification = async (req, res) => {
     try {
-        const { department } = req.params;
-        const teachers = await prisma_1.default.teacher.findMany({
+        const { qualification } = req.params;
+        const teachers = await prisma_1.default.user.findMany({
             where: {
-                department: department,
+                role: 'Teacher',
+                qualifications: {
+                    contains: qualification,
+                    mode: 'insensitive'
+                },
                 isActive: true
             },
             select: {
                 id: true,
                 email: true,
-                firstName: true,
-                lastName: true,
+                fullName: true,
                 profileImage: true,
-                teacherId: true,
-                department: true,
-                designation: true,
-                qualification: true,
-                specialization: true,
-                experience: true,
+                role: true,
+                qualifications: true,
+                experienceSummary: true,
                 isActive: true,
             }
         });
         res.status(200).json({
-            message: `Teachers in ${department} department retrieved successfully`,
+            message: `Teachers with qualification "${qualification}" retrieved successfully`,
             count: teachers.length,
             teachers
         });
     }
     catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Error retrieving teachers by department' });
+        res.status(500).json({ message: 'Error retrieving teachers by qualification' });
     }
 };
-exports.getTeachersByDepartment = getTeachersByDepartment;
-const getTeachersByDesignation = async (req, res) => {
-    try {
-        const { designation } = req.params;
-        const teachers = await prisma_1.default.teacher.findMany({
-            where: {
-                designation: designation,
-                isActive: true
-            },
-            select: {
-                id: true,
-                email: true,
-                firstName: true,
-                lastName: true,
-                profileImage: true,
-                teacherId: true,
-                department: true,
-                designation: true,
-                qualification: true,
-                specialization: true,
-                experience: true,
-                isActive: true,
-            }
-        });
-        res.status(200).json({
-            message: `${designation}s retrieved successfully`,
-            count: teachers.length,
-            teachers
-        });
-    }
-    catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error retrieving teachers by designation' });
-    }
-};
-exports.getTeachersByDesignation = getTeachersByDesignation;
+exports.getTeachersByQualification = getTeachersByQualification;
 //# sourceMappingURL=teacher.controller.js.map

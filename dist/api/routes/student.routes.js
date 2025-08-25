@@ -11,12 +11,10 @@ const router = express_1.default.Router();
 router.use(auth_middleware_1.protect);
 router.get('/profile', student_controller_1.getStudentProfile);
 router.put('/update-academic', [
-    (0, express_validator_1.body)('department').optional().isString(),
-    (0, express_validator_1.body)('yearOfStudy').optional().isInt({ min: 1, max: 8 }),
-    (0, express_validator_1.body)('semester').optional().isInt({ min: 1, max: 16 }),
-    (0, express_validator_1.body)('gpa').optional().isFloat({ min: 0, max: 4 }),
+    (0, express_validator_1.body)('gradeLevel').optional().isInt({ min: 1, max: 12 }),
+    (0, express_validator_1.body)('learningGoals').optional().isString(),
 ], student_controller_1.updateAcademicDetails);
 router.get('/all', student_controller_1.getAllStudents);
-router.get('/department/:department', student_controller_1.getStudentsByDepartment);
+router.get('/grade/:gradeLevel', student_controller_1.getStudentsByGradeLevel);
 exports.default = router;
 //# sourceMappingURL=student.routes.js.map

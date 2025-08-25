@@ -4,7 +4,7 @@ import {
   getStudentProfile,
   updateAcademicDetails,
   getAllStudents,
-  getStudentsByDepartment,
+  getStudentsByGradeLevel,
 } from '../controllers/student.controller';
 import { protect } from '../middlewares/auth.middleware';
 
@@ -18,16 +18,14 @@ router.get('/profile', getStudentProfile);
 router.put(
   '/update-academic',
   [
-    body('department').optional().isString(),
-    body('yearOfStudy').optional().isInt({ min: 1, max: 8 }),
-    body('semester').optional().isInt({ min: 1, max: 16 }),
-    body('gpa').optional().isFloat({ min: 0, max: 4 }),
+    body('gradeLevel').optional().isInt({ min: 1, max: 12 }),
+    body('learningGoals').optional().isString(),
   ],
   updateAcademicDetails
 );
 
 // Admin routes (for managing students)
 router.get('/all', getAllStudents);
-router.get('/department/:department', getStudentsByDepartment);
+router.get('/grade/:gradeLevel', getStudentsByGradeLevel);
 
 export default router; 

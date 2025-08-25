@@ -1,28 +1,31 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.checkRole = exports.protect = void 0;
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
+const secretCode_service_1 = require("../../services/secretCode.service");
 const protect = (req, res, next) => {
-    let token;
-    if (req.headers.authorization &&
-        req.headers.authorization.startsWith('Bearer')) {
-        try {
-            token = req.headers.authorization.split(' ')[1];
-            const decoded = jsonwebtoken_1.default.verify(token, process.env['JWT_SECRET']);
-            req.user = decoded;
-            next();
-        }
-        catch (error) {
-            console.error(error);
-            res.status(401).json({ message: 'Not authorized, token failed' });
-            return;
-        }
+    let sessionCode;
+    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer ')) {
+        sessionCode = req.headers.authorization.split(' ')[1];
     }
-    if (!token) {
-        res.status(401).json({ message: 'Not authorized, no token' });
+    if (!sessionCode && req.cookies.sessionCode) {
+        sessionCode = req.cookies.sessionCode;
+    }
+    if (!sessionCode) {
+        res.status(401).json({ message: 'Not authorized, no session code provided' });
+        return;
+    }
+    try {
+        const userData = secretCode_service_1.SecretCodeService.validateSessionCode(sessionCode);
+        req.user = {
+            userId: userData.userId,
+            email: userData.email,
+            role: userData.role
+        };
+        next();
+    }
+    catch (error) {
+        console.error('Session code validation error:', error);
+        res.status(401).json({ message: 'Not authorized, invalid session code' });
         return;
     }
 };

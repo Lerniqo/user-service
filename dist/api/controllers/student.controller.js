@@ -3,12 +3,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getStudentsByDepartment = exports.getAllStudents = exports.updateAcademicDetails = exports.getStudentProfile = void 0;
+exports.getStudentsByGradeLevel = exports.getAllStudents = exports.updateAcademicDetails = exports.getStudentProfile = void 0;
 const prisma_1 = __importDefault(require("../../config/prisma"));
 const getStudentProfile = async (req, res) => {
     try {
-        const student = await prisma_1.default.student.findUnique({
-            where: { id: req.user.userId },
+        const student = await prisma_1.default.user.findUnique({
+            where: {
+                id: req.user.userId,
+                role: 'Student'
+            },
         });
         if (!student) {
             res.status(404).json({ message: 'Student profile not found' });
@@ -19,15 +22,10 @@ const getStudentProfile = async (req, res) => {
             student: {
                 id: student.id,
                 email: student.email,
-                firstName: student.firstName,
-                lastName: student.lastName,
-                studentId: student.studentId,
-                department: student.department,
-                yearOfStudy: student.yearOfStudy,
-                semester: student.semester,
-                enrollmentDate: student.enrollmentDate,
-                graduationDate: student.graduationDate,
-                gpa: student.gpa,
+                fullName: student.fullName,
+                role: student.role,
+                gradeLevel: student.gradeLevel,
+                learningGoals: student.learningGoals,
                 isActive: student.isActive,
                 isVerified: student.isVerified,
                 profileImage: student.profileImage,
@@ -44,14 +42,15 @@ const getStudentProfile = async (req, res) => {
 exports.getStudentProfile = getStudentProfile;
 const updateAcademicDetails = async (req, res) => {
     try {
-        const { department, yearOfStudy, semester, gpa } = req.body;
-        const updatedStudent = await prisma_1.default.student.update({
-            where: { id: req.user.userId },
+        const { gradeLevel, learningGoals } = req.body;
+        const updatedStudent = await prisma_1.default.user.update({
+            where: {
+                id: req.user.userId,
+                role: 'Student'
+            },
             data: {
-                department,
-                yearOfStudy: yearOfStudy ? parseInt(yearOfStudy.toString()) : undefined,
-                semester: semester ? parseInt(semester.toString()) : undefined,
-                gpa: gpa ? parseFloat(gpa.toString()) : undefined,
+                gradeLevel,
+                learningGoals,
             },
         });
         res.status(200).json({
@@ -67,22 +66,20 @@ const updateAcademicDetails = async (req, res) => {
 exports.updateAcademicDetails = updateAcademicDetails;
 const getAllStudents = async (req, res) => {
     try {
-        const students = await prisma_1.default.student.findMany({
+        const students = await prisma_1.default.user.findMany({
             where: {
+                role: 'Student',
                 isActive: true
             },
             select: {
                 id: true,
                 email: true,
-                firstName: true,
-                lastName: true,
+                fullName: true,
                 profileImage: true,
                 isVerified: true,
-                studentId: true,
-                department: true,
-                yearOfStudy: true,
-                semester: true,
-                gpa: true,
+                role: true,
+                gradeLevel: true,
+                learningGoals: true,
                 isActive: true,
                 createdAt: true,
             }
@@ -99,38 +96,36 @@ const getAllStudents = async (req, res) => {
     }
 };
 exports.getAllStudents = getAllStudents;
-const getStudentsByDepartment = async (req, res) => {
+const getStudentsByGradeLevel = async (req, res) => {
     try {
-        const { department } = req.params;
-        const students = await prisma_1.default.student.findMany({
+        const { gradeLevel } = req.params;
+        const students = await prisma_1.default.user.findMany({
             where: {
-                department: department,
+                role: 'Student',
+                gradeLevel: parseInt(gradeLevel),
                 isActive: true
             },
             select: {
                 id: true,
                 email: true,
-                firstName: true,
-                lastName: true,
+                fullName: true,
                 profileImage: true,
-                studentId: true,
-                department: true,
-                yearOfStudy: true,
-                semester: true,
-                gpa: true,
+                role: true,
+                gradeLevel: true,
+                learningGoals: true,
                 isActive: true,
             }
         });
         res.status(200).json({
-            message: `Students in ${department} department retrieved successfully`,
+            message: `Students in grade ${gradeLevel} retrieved successfully`,
             count: students.length,
             students
         });
     }
     catch (error) {
         console.error(error);
-        res.status(500).json({ message: 'Error retrieving students by department' });
+        res.status(500).json({ message: 'Error retrieving students by grade level' });
     }
 };
-exports.getStudentsByDepartment = getStudentsByDepartment;
+exports.getStudentsByGradeLevel = getStudentsByGradeLevel;
 //# sourceMappingURL=student.controller.js.map

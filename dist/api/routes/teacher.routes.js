@@ -11,14 +11,10 @@ const router = express_1.default.Router();
 router.use(auth_middleware_1.protect);
 router.get('/profile', teacher_controller_1.getTeacherProfile);
 router.put('/update-professional', [
-    (0, express_validator_1.body)('department').optional().isString(),
-    (0, express_validator_1.body)('designation').optional().isString(),
-    (0, express_validator_1.body)('qualification').optional().isString(),
-    (0, express_validator_1.body)('specialization').optional().isString(),
-    (0, express_validator_1.body)('experience').optional().isInt({ min: 0 }),
+    (0, express_validator_1.body)('qualifications').optional().isString(),
+    (0, express_validator_1.body)('experienceSummary').optional().isString(),
 ], teacher_controller_1.updateProfessionalDetails);
 router.get('/all', teacher_controller_1.getAllTeachers);
-router.get('/department/:department', teacher_controller_1.getTeachersByDepartment);
-router.get('/designation/:designation', teacher_controller_1.getTeachersByDesignation);
+router.get('/search/:qualification', teacher_controller_1.getTeachersByQualification);
 exports.default = router;
 //# sourceMappingURL=teacher.routes.js.map

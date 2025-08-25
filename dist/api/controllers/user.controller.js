@@ -8,28 +8,21 @@ const bcryptjs_1 = __importDefault(require("bcryptjs"));
 const prisma_1 = __importDefault(require("../../config/prisma"));
 const updateProfile = async (req, res) => {
     try {
-        const { firstName, lastName, email } = req.body;
-        const { userId, role } = req.user;
-        let updatedUser;
-        if (role === 'STUDENT') {
-            updatedUser = await prisma_1.default.student.update({
-                where: { id: userId },
-                data: { firstName, lastName, email },
-            });
-        }
-        else if (role === 'TEACHER') {
-            updatedUser = await prisma_1.default.teacher.update({
-                where: { id: userId },
-                data: { firstName, lastName, email },
-            });
-        }
-        else if (role === 'ADMIN') {
-            updatedUser = await prisma_1.default.admin.update({
-                where: { id: userId },
-                data: { firstName, lastName, email },
-            });
-        }
-        res.status(200).json({ message: 'Profile updated', user: updatedUser });
+        const { fullName } = req.body;
+        const { userId } = req.user;
+        const updatedUser = await prisma_1.default.user.update({
+            where: { id: userId },
+            data: { fullName },
+        });
+        res.status(200).json({
+            message: 'Profile updated successfully',
+            user: {
+                id: updatedUser.id,
+                email: updatedUser.email,
+                fullName: updatedUser.fullName,
+                role: updatedUser.role,
+            }
+        });
     }
     catch (error) {
         console.error(error);
@@ -40,22 +33,13 @@ exports.updateProfile = updateProfile;
 const changePassword = async (req, res) => {
     try {
         const { oldPassword, newPassword } = req.body;
-        const { userId, role } = req.user;
-        let user;
-        if (role === 'STUDENT') {
-            user = await prisma_1.default.student.findUnique({
-                where: { id: userId },
-            });
-        }
-        else if (role === 'TEACHER') {
-            user = await prisma_1.default.teacher.findUnique({
-                where: { id: userId },
-            });
-        }
-        else if (role === 'ADMIN') {
-            user = await prisma_1.default.admin.findUnique({
-                where: { id: userId },
-            });
+        const { userId } = req.user;
+        const user = await prisma_1.default.user.findUnique({
+            where: { id: userId },
+        });
+        if (!user) {
+            res.status(404).json({ message: 'User not found' });
+            return;
         }
         const isMatch = await bcryptjs_1.default.compare(oldPassword, user.password);
         if (!isMatch) {
@@ -63,24 +47,10 @@ const changePassword = async (req, res) => {
             return;
         }
         const hashedNewPassword = await bcryptjs_1.default.hash(newPassword, 12);
-        if (role === 'STUDENT') {
-            await prisma_1.default.student.update({
-                where: { id: userId },
-                data: { password: hashedNewPassword },
-            });
-        }
-        else if (role === 'TEACHER') {
-            await prisma_1.default.teacher.update({
-                where: { id: userId },
-                data: { password: hashedNewPassword },
-            });
-        }
-        else if (role === 'ADMIN') {
-            await prisma_1.default.admin.update({
-                where: { id: userId },
-                data: { password: hashedNewPassword },
-            });
-        }
+        await prisma_1.default.user.update({
+            where: { id: userId },
+            data: { password: hashedNewPassword },
+        });
         res.status(200).json({ message: 'Password changed successfully' });
     }
     catch (error) {
@@ -96,26 +66,15 @@ const uploadProfilePhoto = async (req, res) => {
             return;
         }
         const imagePath = `/uploads/${req.file.filename}`;
-        const { userId, role } = req.user;
-        if (role === 'STUDENT') {
-            await prisma_1.default.student.update({
-                where: { id: userId },
-                data: { profileImage: imagePath },
-            });
-        }
-        else if (role === 'TEACHER') {
-            await prisma_1.default.teacher.update({
-                where: { id: userId },
-                data: { profileImage: imagePath },
-            });
-        }
-        else if (role === 'ADMIN') {
-            await prisma_1.default.admin.update({
-                where: { id: userId },
-                data: { profileImage: imagePath },
-            });
-        }
-        res.status(200).json({ message: 'Photo uploaded', path: imagePath });
+        const { userId } = req.user;
+        await prisma_1.default.user.update({
+            where: { id: userId },
+            data: { profileImage: imagePath },
+        });
+        res.status(200).json({
+            message: 'Photo uploaded successfully',
+            path: imagePath
+        });
     }
     catch (err) {
         console.error(err);

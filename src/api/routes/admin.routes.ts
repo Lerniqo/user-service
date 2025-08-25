@@ -19,9 +19,7 @@ router.get('/profile', getAdminProfile);
 router.put(
   '/update-administrative',
   [
-    body('department').optional().isString(),
-    body('designation').optional().isString(),
-    body('permissions').optional().isArray(),
+    body('fullName').optional().isString(),
   ],
   updateAdministrativeDetails
 );

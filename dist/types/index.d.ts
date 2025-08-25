@@ -1,117 +1,62 @@
 import { Request } from 'express';
+export type { User, UserRole } from '@prisma/client';
 export interface IUser {
     id: string;
     email: string;
-    firstName: string;
-    lastName: string;
-    password: string;
+    role: 'Student' | 'Teacher' | 'Admin';
+    fullName: string;
+    gradeLevel?: number;
+    learningGoals?: string;
+    qualifications?: string;
+    experienceSummary?: string;
+    isActive: boolean;
     isVerified: boolean;
-    verificationToken?: string;
     profileImage?: string;
+    verificationCode?: string;
+    passwordResetCode?: string;
+    passwordResetExpires?: Date;
     createdAt: Date;
     updatedAt: Date;
-}
-export interface IStudent extends IUser {
-    studentId: string;
-    department?: string;
-    yearOfStudy?: number;
-    semester?: number;
-    enrollmentDate: Date;
-    graduationDate?: Date;
-    gpa?: number;
-    isActive: boolean;
-}
-export interface ITeacher extends IUser {
-    teacherId: string;
-    department?: string;
-    designation?: string;
-    qualification?: string;
-    specialization?: string;
-    joiningDate: Date;
-    experience?: number;
-    isActive: boolean;
-}
-export interface IAdmin extends IUser {
-    adminId: string;
-    department?: string;
-    designation?: string;
-    permissions: string[];
-    joiningDate: Date;
-    isActive: boolean;
 }
 export interface AuthenticatedRequest extends Request {
     user: {
         userId: string;
         email: string;
-        role: 'STUDENT' | 'TEACHER' | 'ADMIN';
+        role: 'Student' | 'Teacher' | 'Admin';
     };
 }
 export interface RegisterStudentData {
-    firstName: string;
-    lastName: string;
     email: string;
     password: string;
-    role: 'STUDENT';
-    department?: string;
-    yearOfStudy?: number;
-    semester?: number;
+    role: 'Student';
+    fullName: string;
+    gradeLevel: number;
 }
 export interface RegisterTeacherData {
-    firstName: string;
-    lastName: string;
     email: string;
     password: string;
-    role: 'TEACHER';
-    department?: string;
-    designation?: string;
-    qualification?: string;
-    specialization?: string;
-    experience?: number;
+    role: 'Teacher';
+    fullName: string;
+    qualifications: string;
 }
-export interface RegisterAdminData {
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-    role: 'ADMIN';
-    department?: string;
-    designation?: string;
-    permissions?: string[];
-}
-export type RegisterData = RegisterStudentData | RegisterTeacherData | RegisterAdminData;
+export type RegisterData = RegisterStudentData | RegisterTeacherData;
 export interface LoginData {
     email: string;
     password: string;
 }
 export interface UpdateProfileData {
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-}
-export interface UpdateStudentAcademicData {
-    department?: string;
-    yearOfStudy?: number;
-    semester?: number;
-    gpa?: number;
-}
-export interface UpdateTeacherProfessionalData {
-    department?: string;
-    designation?: string;
-    qualification?: string;
-    specialization?: string;
-    experience?: number;
-}
-export interface UpdateAdminAdministrativeData {
-    department?: string;
-    designation?: string;
-    permissions?: string[];
+    fullName?: string;
+    gradeLevel?: number;
+    learningGoals?: string;
+    qualifications?: string;
+    experienceSummary?: string;
 }
 export interface ChangePasswordData {
     oldPassword: string;
     newPassword: string;
 }
 export interface VerifyEmailData {
-    token: string;
+    code: string;
 }
 export interface ApiResponse<T = any> {
     message: string;
@@ -120,56 +65,30 @@ export interface ApiResponse<T = any> {
 }
 export interface LoginResponse {
     message: string;
-    accessToken: string;
-    user: {
-        id: string;
-        email: string;
-        role: 'STUDENT' | 'TEACHER' | 'ADMIN';
-        firstName: string;
-        lastName: string;
-    };
-}
-export interface RefreshTokenResponse {
-    accessToken: string;
-}
-export interface ProfileResponse {
-    id: string;
+    userId: string;
     email: string;
-    firstName: string;
-    lastName: string;
-    role: 'STUDENT' | 'TEACHER' | 'ADMIN';
+    role: 'Student' | 'Teacher' | 'Admin';
+    fullName: string;
+}
+export interface UserProfileResponse {
+    userId: string;
+    email: string;
+    role: 'Student' | 'Teacher' | 'Admin';
+    fullName: string;
+    gradeLevel?: number;
+    learningGoals?: string;
+    qualifications?: string;
+    experienceSummary?: string;
     profileImage?: string;
     isVerified: boolean;
     createdAt: Date;
     updatedAt: Date;
-    studentInfo?: {
-        studentId: string;
-        department?: string;
-        yearOfStudy?: number;
-        semester?: number;
-        enrollmentDate: Date;
-        graduationDate?: Date;
-        gpa?: number;
-        isActive: boolean;
-    };
-    teacherInfo?: {
-        teacherId: string;
-        department?: string;
-        designation?: string;
-        qualification?: string;
-        specialization?: string;
-        joiningDate: Date;
-        experience?: number;
-        isActive: boolean;
-    };
-    adminInfo?: {
-        adminId: string;
-        department?: string;
-        designation?: string;
-        permissions: string[];
-        joiningDate: Date;
-        isActive: boolean;
-    };
+}
+export interface TeacherPublicProfile {
+    userId: string;
+    fullName: string;
+    qualifications: string;
+    experienceSummary: string;
 }
 export interface SystemStatistics {
     totalStudents: number;
@@ -179,6 +98,17 @@ export interface SystemStatistics {
     verifiedUsers: number;
     unverifiedUsers: number;
     verificationRate: string;
+}
+export interface UpdateAdminAdministrativeData {
+    fullName?: string;
+}
+export interface UpdateStudentAcademicData {
+    gradeLevel?: number;
+    learningGoals?: string;
+}
+export interface UpdateTeacherProfessionalData {
+    qualifications?: string;
+    experienceSummary?: string;
 }
 export interface UploadedFile {
     fieldname: string;
