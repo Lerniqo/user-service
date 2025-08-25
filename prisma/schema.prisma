@@ -7,21 +7,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Unified user table for all user types
+// Core user table for authentication and common fields
 model User {
   id                    String    @id @default(cuid())
   email                 String    @unique
   password             String
   role                 UserRole
   fullName             String    @map("full_name")
-  
-  // Student-specific fields
-  gradeLevel           Int?      @map("grade_level")
-  learningGoals        String?   @map("learning_goals") @db.Text
-  
-  // Teacher-specific fields
-  qualifications       String?   @db.Text
-  experienceSummary    String?   @map("experience_summary") @db.Text
   
   // Common fields
   isActive             Boolean   @default(true) @map("is_active")
@@ -30,13 +22,62 @@ model User {
   verificationCode     String?   @unique @map("verification_code")
   passwordResetCode    String?   @unique @map("password_reset_code")
   passwordResetExpires DateTime? @map("password_reset_expires")
+  refreshTokens        String[]  @map("refresh_tokens") @db.Text
   createdAt            DateTime  @default(now()) @map("created_at")
   updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  // Relationships
+  student              Student?
+  teacher              Teacher?
+  admin                Admin?
 
   @@map("users")
 }
 
-// Enum for user roles
+// Student-specific information
+model Student {
+  id            String   @id @default(cuid())
+  userId        String   @unique @map("user_id")
+  gradeLevel    Int?     @map("grade_level")
+  learningGoals String?  @map("learning_goals") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  // Relationship
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("students")
+}
+
+// Teacher-specific information
+model Teacher {
+  id                String   @id @default(cuid())
+  userId            String   @unique @map("user_id")
+  qualifications    String?  @db.Text
+  experienceSummary String?  @map("experience_summary") @db.Text
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  // Relationship
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("teachers")
+}
+
+// Admin-specific information
+model Admin {
+  id         String   @id @default(cuid())
+  userId     String   @unique @map("user_id")
+  department String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relationship
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("admins")
+}
+
 enum UserRole {
   Student
   Teacher

@@ -1,11 +1,8 @@
 import express, { Request, Response, Express, NextFunction } from 'express';
 import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
-import authRoutes from './api/routes/auth.routes';
 import userRoutes from './api/routes/user.routes';
-import studentRoutes from './api/routes/student.routes';
-import teacherRoutes from './api/routes/teacher.routes';
-import adminRoutes from './api/routes/admin.routes';
+import usersRoutes from './api/routes/users.routes';
 import cors from "cors";
 import { config } from './config/env';
 
@@ -39,11 +36,8 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // API Routes
-app.use('/api/auth', authRoutes);
 app.use('/api/user', userRoutes);
-app.use('/api/student', studentRoutes);
-app.use('/api/teacher', teacherRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/users', usersRoutes);  // Main users API
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));

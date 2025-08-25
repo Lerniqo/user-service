@@ -2,10 +2,10 @@ import express, { Router } from 'express';
 import { body } from 'express-validator';
 import multer from 'multer';
 import {
-  updateProfile,
+  updateMyProfile as updateProfile,
   changePassword,
   uploadProfilePhoto,
-} from '../controllers/user.controller';
+} from '../controllers/users.controller';
 import { protect } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();

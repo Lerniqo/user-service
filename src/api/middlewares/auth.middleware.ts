@@ -10,13 +10,17 @@ export const protect = (req: Request, res: Response, next: NextFunction): void =
     sessionCode = req.headers.authorization.split(' ')[1];
   }
 
-  // Check for session code in cookies
+  // Check for session code in cookies (both sessionCode and accessToken)
   if (!sessionCode && req.cookies.sessionCode) {
     sessionCode = req.cookies.sessionCode;
   }
 
+  if (!sessionCode && req.cookies.accessToken) {
+    sessionCode = req.cookies.accessToken;
+  }
+
   if (!sessionCode) {
-    res.status(401).json({ message: 'Not authorized, no session code provided' });
+    res.status(401).json({ message: 'Not authorized, no token provided' });
     return;
   }
 
@@ -34,7 +38,7 @@ export const protect = (req: Request, res: Response, next: NextFunction): void =
     next();
   } catch (error) {
     console.error('Session code validation error:', error);
-    res.status(401).json({ message: 'Not authorized, invalid session code' });
+    res.status(401).json({ message: 'Not authorized, invalid token' });
     return;
   }
 };
