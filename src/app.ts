@@ -36,8 +36,8 @@ app.get('/health', (req: Request, res: Response) => {
 });
 
 // API Routes
-app.use('/api/user', userRoutes);
-app.use('/api/users', usersRoutes);  // Main users API
+app.use('/user', userRoutes);
+app.use('/users', usersRoutes);  // Main users API
 
 // Serve uploaded files
 app.use('/uploads', express.static('uploads'));
