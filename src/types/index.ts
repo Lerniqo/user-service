@@ -32,7 +32,34 @@ export interface AuthenticatedRequest extends Request {
   };
 }
 
-// Registration types
+// Step 1 Registration types (Basic info only)
+export interface BasicRegistrationData {
+  email: string;
+  password: string;
+  role: 'Student' | 'Teacher' | 'Admin';
+}
+
+// Step 2 Profile completion types (After email verification)
+export interface CompleteStudentProfileData {
+  fullName: string;
+  gradeLevel?: number;
+  learningGoals?: string;
+}
+
+export interface CompleteTeacherProfileData {
+  fullName: string;
+  qualifications?: string;
+  experienceSummary?: string;
+}
+
+export interface CompleteAdminProfileData {
+  fullName: string;
+  department?: string;
+}
+
+export type CompleteProfileData = CompleteStudentProfileData | CompleteTeacherProfileData | CompleteAdminProfileData;
+
+// Legacy types for backward compatibility
 export interface RegisterStudentData {
   email: string;
   password: string;
@@ -80,6 +107,28 @@ export interface ApiResponse<T = any> {
   message: string;
   data?: T;
   error?: string;
+}
+
+export interface BasicRegistrationResponse {
+  userId: string;
+  email: string;
+  role: 'Student' | 'Teacher' | 'Admin';
+  message: string;
+}
+
+export interface EmailVerificationResponse {
+  message: string;
+  userId: string;
+  role: 'Student' | 'Teacher' | 'Admin';
+  profileCompleted: boolean;
+}
+
+export interface CompleteProfileResponse {
+  message: string;
+  userId: string;
+  email: string;
+  role: 'Student' | 'Teacher' | 'Admin';
+  fullName: string;
 }
 
 export interface LoginResponse {

@@ -14,6 +14,7 @@ import {
   getStudentById,
   getAllUsers,
   updateUserById,
+  completeProfile,
 } from '../controllers/users.controller';
 import { protect, checkRole } from '../middlewares/auth.middleware';
 
@@ -23,7 +24,6 @@ const router: Router = express.Router();
 const registerValidation = [
   body('email', 'Please include a valid email').isEmail(),
   body('password', 'Password must be 6 or more characters').isLength({ min: 6 }),
-  body('fullName', 'Full name is required').not().isEmpty(),
   body('role', 'Role must be Student, Teacher, or Admin').isIn(['Student', 'Teacher', 'Admin']),
 ];
 
@@ -34,6 +34,15 @@ const loginValidation = [
 
 const verifyEmailValidation = [
   body('code', 'Verification code is required').not().isEmpty(),
+];
+
+const completeProfileValidation = [
+  body('fullName', 'Full name is required').not().isEmpty(),
+  body('gradeLevel').optional().isInt({ min: 1, max: 12 }).withMessage('Grade level must be between 1 and 12'),
+  body('learningGoals').optional().isString().withMessage('Learning goals must be a string'),
+  body('qualifications').optional().isString().withMessage('Qualifications must be a string'),
+  body('experienceSummary').optional().isString().withMessage('Experience summary must be a string'),
+  body('department').optional().isString().withMessage('Department must be a string'),
 ];
 
 const updateProfileValidation = [
@@ -48,6 +57,7 @@ const updateProfileValidation = [
 // Public routes
 router.post('/register', registerValidation, register);
 router.post('/verify-email', verifyEmailValidation, verifyEmail);
+router.post('/complete-profile/:userId', completeProfileValidation, completeProfile);
 router.post('/login', loginValidation, login);
 router.post('/refresh-token', refreshToken);
 

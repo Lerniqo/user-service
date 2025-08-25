@@ -18,7 +18,7 @@ app.use(cookieParser()); // To parse cookies
 
 app.use(
   cors({
-    origin: [config.cors.frontendUrl, "http://localhost:3000"], // Allow requests from frontend
+    origin: [config.cors.frontendUrl, "http://localhost:3000","https://main.d1sth71y2qgz43.amplifyapp.com"], // Allow requests from frontend
     credentials: true, // Allow cookies if needed
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],

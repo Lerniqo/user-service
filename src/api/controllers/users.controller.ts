@@ -14,7 +14,7 @@ import {
   SystemStatistics,
 } from '../../types';
 
-// POST /api/users/register
+// POST /api/users/register - Step 1: Basic registration
 export const register = async (req: Request, res: Response): Promise<void> => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -26,12 +26,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const { 
       email, 
       password, 
-      role = "Student", 
-      fullName,
-      gradeLevel,
-      qualifications,
-      experienceSummary,
-      department
+      role = "Student"
     } = req.body;
 
     // Check if user already exists
@@ -47,55 +42,26 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     const hashedPassword = await bcrypt.hash(password, 12);
     const verificationCode = SecretCodeService.generateVerificationCode();
 
-    // Create user with transaction to ensure data integrity
-    const result = await prisma.$transaction(async (tx) => {
-      // Create the main user
-      const user = await tx.user.create({
-        data: {
-          email,
-          password: hashedPassword,
-          role: role as "Student" | "Teacher" | "Admin",
-          fullName,
-          verificationCode,
-        },
-      });
-
-      // Create role-specific profile
-      if (role === "Student") {
-        await tx.student.create({
-          data: {
-            userId: user.id,
-            gradeLevel: gradeLevel || null,
-          },
-        });
-      } else if (role === "Teacher") {
-        await tx.teacher.create({
-          data: {
-            userId: user.id,
-            qualifications: qualifications || null,
-            experienceSummary: experienceSummary || null,
-          },
-        });
-      } else if (role === "Admin") {
-        await tx.admin.create({
-          data: {
-            userId: user.id,
-            department: department || null,
-          },
-        });
-      }
-
-      return user;
+    // Create user with basic information only
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        role: role as "Student" | "Teacher" | "Admin",
+        fullName: "", // Will be set in step 2
+        verificationCode,
+        isVerified: false,
+      },
     });
 
     // Send verification email
-    await sendVerificationEmail(result.email, verificationCode);
+    await sendVerificationEmail(user.email, verificationCode);
 
     res.status(201).json({
-      userId: result.id,
-      email: result.email,
-      role: result.role,
-      fullName: result.fullName,
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      message: "Registration successful! Please check your email to verify your account before completing your profile."
     });
   } catch (error) {
     console.error(error);
@@ -131,7 +97,101 @@ export const verifyEmail = async (req: Request, res: Response): Promise<void> =>
     });
 
     res.status(200).json({
-      message: "Email verified successfully! You can now log in."
+      message: "Email verified successfully! Please complete your profile to continue.",
+      userId: user.id,
+      role: user.role,
+      profileCompleted: user.fullName !== ""
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// POST /api/users/complete-profile - Step 2: Complete profile after verification
+export const completeProfile = async (req: Request, res: Response): Promise<void> => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400).json({ errors: errors.array() });
+    return;
+  }
+
+  try {
+    const { userId } = req.params;
+    const { 
+      fullName,
+      gradeLevel,
+      learningGoals,
+      qualifications,
+      experienceSummary,
+      department
+    } = req.body;
+
+    // Find the user and check if verified
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      res.status(404).json({ message: "User not found." });
+      return;
+    }
+
+    if (!user.isVerified) {
+      res.status(400).json({ message: "Email must be verified before completing profile." });
+      return;
+    }
+
+    if (user.fullName !== "") {
+      res.status(400).json({ message: "Profile already completed." });
+      return;
+    }
+
+    // Complete profile with transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Update user with full name
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          fullName,
+        },
+      });
+
+      // Create role-specific profile
+      if (user.role === "Student") {
+        await tx.student.create({
+          data: {
+            userId: user.id,
+            gradeLevel: gradeLevel || null,
+            learningGoals: learningGoals || null,
+          },
+        });
+      } else if (user.role === "Teacher") {
+        await tx.teacher.create({
+          data: {
+            userId: user.id,
+            qualifications: qualifications || null,
+            experienceSummary: experienceSummary || null,
+          },
+        });
+      } else if (user.role === "Admin") {
+        await tx.admin.create({
+          data: {
+            userId: user.id,
+            department: department || null,
+          },
+        });
+      }
+
+      return updatedUser;
+    });
+
+    res.status(200).json({
+      message: "Profile completed successfully! You can now log in.",
+      userId: result.id,
+      email: result.email,
+      role: result.role,
+      fullName: result.fullName,
     });
   } catch (error) {
     console.error(error);
@@ -162,6 +222,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     if (!user.isVerified) {
       res.status(401).json({
         message: "Email not verified. Please check your inbox."
+      });
+      return;
+    }
+
+    if (user.fullName === "") {
+      res.status(401).json({
+        message: "Profile not completed. Please complete your profile first.",
+        userId: user.id,
+        profileCompleted: false
       });
       return;
     }

@@ -28,12 +28,22 @@ npm run dev
 
 ## 📋 Features
 
-- **Authentication**: Registration, login, email verification, password reset
-- **Role-based Access**: Student, Teacher, and Admin roles
-- **Profile Management**: Complete user profile management
+- **Two-Step Registration**: Secure registration flow with email verification before profile completion
+- **Role-based Access**: Student, Teacher, and Admin roles with role-specific profiles
+- **Profile Management**: Complete user profile management with role-specific fields
 - **Security**: Session-based authentication with encrypted tokens
 - **File Upload**: Profile photo upload
 - **Email Integration**: Automated verification and password reset emails
+
+### Registration Flow
+
+1. **Step 1**: User provides basic info (email, password, role)
+2. **Email Verification**: User receives verification email
+3. **Step 2**: After verification, user completes profile with role-specific information:
+   - **Students**: Full name, grade level, learning goals
+   - **Teachers**: Full name, qualifications, experience summary  
+   - **Admins**: Full name, department
+4. **Login**: User can now log in with complete profile
 
 ## 🛠 Tech Stack
 
@@ -54,10 +64,23 @@ npm start       # Run production build
 
 ## 📚 API Endpoints
 
+### Two-Step Registration Flow
+
+#### Step 1: Basic Registration
+- **POST** `/api/users/register` - Register with email, password, and role only
+  - Body: `{ email, password, role }`
+  - Returns: Basic user info with verification instructions
+
+#### Step 2: Complete Profile (After Email Verification)
+- **POST** `/api/users/verify-email` - Verify email address
+  - Body: `{ code }`
+  - Returns: Verification status and profile completion status
+- **POST** `/api/users/complete-profile/:userId` - Complete profile with personal information
+  - Body: Role-specific data (fullName + role-specific fields)
+  - Returns: Complete user profile
+
 ### Core Routes
-- **POST** `/api/users/register` - Register new user
-- **POST** `/api/users/login` - User login  
-- **POST** `/api/users/verify-email` - Email verification
+- **POST** `/api/users/login` - User login (requires completed profile)
 - **GET** `/api/users/me` - Get current user profile
 - **PUT** `/api/users/me` - Update profile
 - **POST** `/api/users/logout` - Logout
