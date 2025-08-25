@@ -4,7 +4,7 @@ import { config } from './env';
 const prisma = new PrismaClient({
   datasources: {
     db: {
-      url: config.database.url,
+      url: process.env.DATABASE_URL || 'postgresql://user:password@localhost:5432/mydb',
     },
   },
   log: ['query', 'info', 'warn', 'error'],
