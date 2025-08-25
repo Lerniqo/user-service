@@ -7,99 +7,79 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  STUDENT
-  TEACHER
-  ADMIN
+// Core user table for authentication and common fields
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  password             String
+  role                 UserRole
+  fullName             String    @map("full_name")
+  
+  // Common fields
+  isActive             Boolean   @default(true) @map("is_active")
+  isVerified           Boolean   @default(false) @map("is_verified")
+  profileImage         String?   @map("profile_image")
+  verificationCode     String?   @unique @map("verification_code")
+  passwordResetCode    String?   @unique @map("password_reset_code")
+  passwordResetExpires DateTime? @map("password_reset_expires")
+  refreshTokens        String[]  @map("refresh_tokens") @db.Text
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  // Relationships
+  student              Student?
+  teacher              Teacher?
+  admin                Admin?
+
+  @@map("users")
 }
 
+// Student-specific information
 model Student {
-  id                String   @id @default(cuid())
-  email             String   @unique
-  password          String
-  firstName         String
-  lastName          String
-  studentId         String   @unique
-  department        String?
-  yearOfStudy       Int?
-  semester          Int?
-  enrollmentDate    DateTime @default(now())
-  graduationDate    DateTime?
-  gpa               Float?   @default(0.0)
-  isVerified        Boolean  @default(false)
-  verificationToken String?  @unique
-  profileImage      String?
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id            String   @id @default(cuid())
+  userId        String   @unique @map("user_id")
+  gradeLevel    Int?     @map("grade_level")
+  learningGoals String?  @map("learning_goals") @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
-  // Add these two:
-  passwordResetToken   String?   @unique
-  passwordResetExpires DateTime?
-  
-  // Refresh token support
-  refreshToken         String?   @unique
-  refreshTokenExpires  DateTime?
+  // Relationship
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("students")
 }
 
+// Teacher-specific information
 model Teacher {
   id                String   @id @default(cuid())
-  email             String   @unique
-  password          String
-  firstName         String
-  lastName          String
-  teacherId         String   @unique
-  department        String?
-  designation       String?
-  qualification     String?
-  specialization    String?
-  joiningDate       DateTime @default(now())
-  experience        Int?
-  isVerified        Boolean  @default(false)
-  verificationToken String?  @unique
-  profileImage      String?
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  userId            String   @unique @map("user_id")
+  qualifications    String?  @db.Text
+  experienceSummary String?  @map("experience_summary") @db.Text
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
-  // Add these two:
-  passwordResetToken   String?   @unique
-  passwordResetExpires DateTime?
-  
-  // Refresh token support
-  refreshToken         String?   @db.Text
-  refreshTokenExpires  DateTime?
+  // Relationship
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("teachers")
 }
 
+// Admin-specific information
 model Admin {
-  id                String   @id @default(cuid())
-  email             String   @unique
-  password          String
-  firstName         String
-  lastName          String
-  adminId           String   @unique
-  department        String?
-  designation       String?
-  permissions       String[]
-  joiningDate       DateTime @default(now())
-  isVerified        Boolean  @default(false)
-  verificationToken String?  @unique
-  profileImage      String?
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id         String   @id @default(cuid())
+  userId     String   @unique @map("user_id")
+  department String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
-  // Add these two:
-  passwordResetToken   String?   @unique
-  passwordResetExpires DateTime?
-  
-  // Refresh token support
-  refreshToken         String?   @unique
-  refreshTokenExpires  DateTime?
+  // Relationship
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("admins")
+}
+
+enum UserRole {
+  Student
+  Teacher
+  Admin
 }

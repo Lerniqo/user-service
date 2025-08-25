@@ -1,0 +1,774 @@
+import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import { validationResult } from 'express-validator';
+import prisma from '../../config/prisma';
+import { sendVerificationEmail, sendPasswordResetEmail } from '../../services/email.service';
+import { SecretCodeService } from '../../services/secretCode.service';
+import crypto from 'crypto';
+import {
+  AuthenticatedRequest,
+  RegisterStudentData,
+  RegisterTeacherData,
+  UserProfileResponse,
+  LoginResponse,
+  SystemStatistics,
+} from '../../types';
+
+// POST /api/users/register
+export const register = async (req: Request, res: Response): Promise<void> => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400).json({ errors: errors.array() });
+    return;
+  }
+
+  try {
+    const { 
+      email, 
+      password, 
+      role = "Student", 
+      fullName,
+      gradeLevel,
+      qualifications,
+      experienceSummary,
+      department
+    } = req.body;
+
+    // Check if user already exists
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      res.status(400).json({ message: "User with this email already exists." });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const verificationCode = SecretCodeService.generateVerificationCode();
+
+    // Create user with transaction to ensure data integrity
+    const result = await prisma.$transaction(async (tx) => {
+      // Create the main user
+      const user = await tx.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          role: role as "Student" | "Teacher" | "Admin",
+          fullName,
+          verificationCode,
+        },
+      });
+
+      // Create role-specific profile
+      if (role === "Student") {
+        await tx.student.create({
+          data: {
+            userId: user.id,
+            gradeLevel: gradeLevel || null,
+          },
+        });
+      } else if (role === "Teacher") {
+        await tx.teacher.create({
+          data: {
+            userId: user.id,
+            qualifications: qualifications || null,
+            experienceSummary: experienceSummary || null,
+          },
+        });
+      } else if (role === "Admin") {
+        await tx.admin.create({
+          data: {
+            userId: user.id,
+            department: department || null,
+          },
+        });
+      }
+
+      return user;
+    });
+
+    // Send verification email
+    await sendVerificationEmail(result.email, verificationCode);
+
+    res.status(201).json({
+      userId: result.id,
+      email: result.email,
+      role: result.role,
+      fullName: result.fullName,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// POST /api/users/verify-email
+export const verifyEmail = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      res.status(400).json({ message: "Verification code is required." });
+      return;
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { verificationCode: code },
+    });
+
+    if (!user) {
+      res.status(400).json({ message: "Invalid or expired verification code." });
+      return;
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        verificationCode: null,
+      },
+    });
+
+    res.status(200).json({
+      message: "Email verified successfully! You can now log in."
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// POST /api/users/login
+export const login = async (req: Request, res: Response): Promise<void> => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400).json({ errors: errors.array() });
+    return;
+  }
+
+  try {
+    const { email, password } = req.body;
+
+    const user = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      res.status(401).json({ message: "Invalid credentials." });
+      return;
+    }
+
+    if (!user.isVerified) {
+      res.status(401).json({
+        message: "Email not verified. Please check your inbox."
+      });
+      return;
+    }
+
+    const isPasswordCorrect = await bcrypt.compare(password, user.password);
+    if (!isPasswordCorrect) {
+      res.status(401).json({ message: "Invalid credentials." });
+      return;
+    }
+
+    // Generate access and refresh tokens
+    const accessToken = SecretCodeService.generateSessionCode(user.id, user.email, user.role);
+    const refreshToken = crypto.randomBytes(32).toString('hex');
+
+    // Store refresh token in database
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        refreshTokens: {
+          push: refreshToken
+        }
+      }
+    });
+
+    // Set HTTP-only cookies
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
+
+    res.status(200).json({
+      message: "Login successful"
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// POST /api/users/refresh-token
+export const refreshToken = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { refreshToken } = req.cookies;
+
+    if (!refreshToken) {
+      res.status(401).json({ message: "Refresh token not provided." });
+      return;
+    }
+
+    // Find user with this refresh token
+    const user = await prisma.user.findFirst({
+      where: {
+        refreshTokens: {
+          has: refreshToken
+        }
+      }
+    });
+
+    if (!user) {
+      res.status(401).json({ message: "Invalid refresh token." });
+      return;
+    }
+
+    // Generate new access token
+    const newAccessToken = SecretCodeService.generateSessionCode(user.id, user.email, user.role);
+
+    // Set new access token cookie
+    res.cookie('accessToken', newAccessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+    });
+
+    res.status(200).json({
+      message: "Token refreshed successfully"
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// POST /api/users/logout
+export const logout = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { refreshToken } = req.cookies;
+
+    if (refreshToken) {
+      // Remove refresh token from database
+      await prisma.user.update({
+        where: { id: req.user.userId },
+        data: {
+          refreshTokens: {
+            set: []
+          }
+        }
+      });
+    }
+
+    // Clear cookies
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+
+    res.status(200).json({ message: "Logout successful" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// GET /api/users/me
+export const getMyProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.user;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        student: true,
+        teacher: true,
+        admin: true,
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ message: "User not found." });
+      return;
+    }
+
+    let profileData: any = {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      fullName: user.fullName,
+      isVerified: user.isVerified,
+      profileImage: user.profileImage,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+
+    // Add role-specific data
+    if (user.role === 'Student' && user.student) {
+      profileData.gradeLevel = user.student.gradeLevel;
+      profileData.learningGoals = user.student.learningGoals;
+    } else if (user.role === 'Teacher' && user.teacher) {
+      profileData.qualifications = user.teacher.qualifications;
+      profileData.experienceSummary = user.teacher.experienceSummary;
+    } else if (user.role === 'Admin' && user.admin) {
+      profileData.department = user.admin.department;
+    }
+
+    res.status(200).json(profileData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+};
+
+// PUT /api/users/me
+export const updateMyProfile = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { userId, role } = req.user;
+    const updateData = req.body;
+
+    await prisma.$transaction(async (tx) => {
+      // Update common user fields
+      const commonFields: any = {};
+      if (updateData.fullName) commonFields.fullName = updateData.fullName;
+
+      if (Object.keys(commonFields).length > 0) {
+        await tx.user.update({
+          where: { id: userId },
+          data: commonFields,
+        });
+      }
+
+      // Update role-specific fields
+      if (role === 'Student') {
+        const studentFields: any = {};
+        if (updateData.gradeLevel !== undefined) studentFields.gradeLevel = updateData.gradeLevel;
+        if (updateData.learningGoals !== undefined) studentFields.learningGoals = updateData.learningGoals;
+
+        if (Object.keys(studentFields).length > 0) {
+          await tx.student.update({
+            where: { userId },
+            data: studentFields,
+          });
+        }
+      } else if (role === 'Teacher') {
+        const teacherFields: any = {};
+        if (updateData.qualifications !== undefined) teacherFields.qualifications = updateData.qualifications;
+        if (updateData.experienceSummary !== undefined) teacherFields.experienceSummary = updateData.experienceSummary;
+
+        if (Object.keys(teacherFields).length > 0) {
+          await tx.teacher.update({
+            where: { userId },
+            data: teacherFields,
+          });
+        }
+      } else if (role === 'Admin') {
+        const adminFields: any = {};
+        if (updateData.department !== undefined) adminFields.department = updateData.department;
+
+        if (Object.keys(adminFields).length > 0) {
+          await tx.admin.update({
+            where: { userId },
+            data: adminFields,
+          });
+        }
+      }
+    });
+
+    // Fetch and return updated profile
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        student: true,
+        teacher: true,
+        admin: true,
+      },
+    });
+
+    let profileData: any = {
+      userId: updatedUser!.id,
+      email: updatedUser!.email,
+      role: updatedUser!.role,
+      fullName: updatedUser!.fullName,
+      isVerified: updatedUser!.isVerified,
+      profileImage: updatedUser!.profileImage,
+      createdAt: updatedUser!.createdAt,
+      updatedAt: updatedUser!.updatedAt,
+    };
+
+    // Add role-specific data
+    if (updatedUser!.role === 'Student' && updatedUser!.student) {
+      profileData.gradeLevel = updatedUser!.student.gradeLevel;
+      profileData.learningGoals = updatedUser!.student.learningGoals;
+    } else if (updatedUser!.role === 'Teacher' && updatedUser!.teacher) {
+      profileData.qualifications = updatedUser!.teacher.qualifications;
+      profileData.experienceSummary = updatedUser!.teacher.experienceSummary;
+    } else if (updatedUser!.role === 'Admin' && updatedUser!.admin) {
+      profileData.department = updatedUser!.admin.department;
+    }
+
+    res.status(200).json(profileData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error updating profile" });
+  }
+};
+
+// DELETE /api/users/me
+export const deleteMyAccount = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { userId } = req.user;
+
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+
+    // Clear cookies
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+
+    res.status(204).send();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error deleting account" });
+  }
+};
+
+// GET /api/users/teachers
+export const getAllTeachers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const teachers = await prisma.user.findMany({
+      where: {
+        role: 'Teacher',
+        isActive: true,
+        isVerified: true,
+      },
+      include: {
+        teacher: true,
+      },
+    });
+
+    const formattedTeachers = teachers.map(teacher => ({
+      userId: teacher.id,
+      fullName: teacher.fullName,
+      qualifications: teacher.teacher?.qualifications || '',
+      experienceSummary: teacher.teacher?.experienceSummary || '',
+      profileImage: teacher.profileImage,
+    }));
+
+    res.status(200).json(formattedTeachers);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error retrieving teachers" });
+  }
+};
+
+// GET /api/users/teachers/:id
+export const getTeacherById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const teacher = await prisma.user.findUnique({
+      where: {
+        id,
+        role: 'Teacher',
+        isActive: true,
+        isVerified: true,
+      },
+      include: {
+        teacher: true,
+      },
+    });
+
+    if (!teacher) {
+      res.status(404).json({ message: "Teacher not found" });
+      return;
+    }
+
+    const formattedTeacher = {
+      userId: teacher.id,
+      fullName: teacher.fullName,
+      email: teacher.email,
+      qualifications: teacher.teacher?.qualifications || '',
+      experienceSummary: teacher.teacher?.experienceSummary || '',
+      profileImage: teacher.profileImage,
+      createdAt: teacher.createdAt,
+    };
+
+    res.status(200).json(formattedTeacher);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error retrieving teacher" });
+  }
+};
+
+// GET /api/users/students/:id (Admin only)
+export const getStudentById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+
+    const student = await prisma.user.findUnique({
+      where: {
+        id,
+        role: 'Student',
+        isActive: true,
+      },
+      include: {
+        student: true,
+      },
+    });
+
+    if (!student) {
+      res.status(404).json({ message: "Student not found" });
+      return;
+    }
+
+    const formattedStudent = {
+      userId: student.id,
+      fullName: student.fullName,
+      email: student.email,
+      gradeLevel: student.student?.gradeLevel,
+      learningGoals: student.student?.learningGoals || '',
+      profileImage: student.profileImage,
+      isVerified: student.isVerified,
+      createdAt: student.createdAt,
+    };
+
+    res.status(200).json(formattedStudent);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error retrieving student" });
+  }
+};
+
+// GET /api/users (Admin only)
+export const getAllUsers = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const users = await prisma.user.findMany({
+      where: {
+        isActive: true,
+      },
+      include: {
+        student: true,
+        teacher: true,
+        admin: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    const formattedUsers = users.map(user => {
+      let userData: any = {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        fullName: user.fullName,
+        isVerified: user.isVerified,
+        profileImage: user.profileImage,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      };
+
+      // Add role-specific data
+      if (user.role === 'Student' && user.student) {
+        userData.gradeLevel = user.student.gradeLevel;
+        userData.learningGoals = user.student.learningGoals;
+      } else if (user.role === 'Teacher' && user.teacher) {
+        userData.qualifications = user.teacher.qualifications;
+        userData.experienceSummary = user.teacher.experienceSummary;
+      } else if (user.role === 'Admin' && user.admin) {
+        userData.department = user.admin.department;
+      }
+
+      return userData;
+    });
+
+    res.status(200).json(formattedUsers);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error retrieving users" });
+  }
+};
+
+// PUT /api/users/:id (Admin only)
+export const updateUserById = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        student: true,
+        teacher: true,
+        admin: true,
+      },
+    });
+
+    if (!user) {
+      res.status(404).json({ message: "User not found" });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Update common user fields
+      const commonFields: any = {};
+      if (updateData.fullName !== undefined) commonFields.fullName = updateData.fullName;
+      if (updateData.isActive !== undefined) commonFields.isActive = updateData.isActive;
+      if (updateData.isVerified !== undefined) commonFields.isVerified = updateData.isVerified;
+
+      if (Object.keys(commonFields).length > 0) {
+        await tx.user.update({
+          where: { id },
+          data: commonFields,
+        });
+      }
+
+      // Update role-specific fields
+      if (user.role === 'Student' && user.student) {
+        const studentFields: any = {};
+        if (updateData.gradeLevel !== undefined) studentFields.gradeLevel = updateData.gradeLevel;
+        if (updateData.learningGoals !== undefined) studentFields.learningGoals = updateData.learningGoals;
+
+        if (Object.keys(studentFields).length > 0) {
+          await tx.student.update({
+            where: { userId: id },
+            data: studentFields,
+          });
+        }
+      } else if (user.role === 'Teacher' && user.teacher) {
+        const teacherFields: any = {};
+        if (updateData.qualifications !== undefined) teacherFields.qualifications = updateData.qualifications;
+        if (updateData.experienceSummary !== undefined) teacherFields.experienceSummary = updateData.experienceSummary;
+
+        if (Object.keys(teacherFields).length > 0) {
+          await tx.teacher.update({
+            where: { userId: id },
+            data: teacherFields,
+          });
+        }
+      } else if (user.role === 'Admin' && user.admin) {
+        const adminFields: any = {};
+        if (updateData.department !== undefined) adminFields.department = updateData.department;
+
+        if (Object.keys(adminFields).length > 0) {
+          await tx.admin.update({
+            where: { userId: id },
+            data: adminFields,
+          });
+        }
+      }
+    });
+
+    // Fetch and return updated user
+    const updatedUser = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        student: true,
+        teacher: true,
+        admin: true,
+      },
+    });
+
+    let userData: any = {
+      userId: updatedUser!.id,
+      email: updatedUser!.email,
+      role: updatedUser!.role,
+      fullName: updatedUser!.fullName,
+      isVerified: updatedUser!.isVerified,
+      isActive: updatedUser!.isActive,
+      profileImage: updatedUser!.profileImage,
+      createdAt: updatedUser!.createdAt,
+      updatedAt: updatedUser!.updatedAt,
+    };
+
+    // Add role-specific data
+    if (updatedUser!.role === 'Student' && updatedUser!.student) {
+      userData.gradeLevel = updatedUser!.student.gradeLevel;
+      userData.learningGoals = updatedUser!.student.learningGoals;
+    } else if (updatedUser!.role === 'Teacher' && updatedUser!.teacher) {
+      userData.qualifications = updatedUser!.teacher.qualifications;
+      userData.experienceSummary = updatedUser!.teacher.experienceSummary;
+    } else if (updatedUser!.role === 'Admin' && updatedUser!.admin) {
+      userData.department = updatedUser!.admin.department;
+    }
+
+    res.status(200).json(userData);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Error updating user" });
+  }
+};
+
+// @desc Change user password  
+// @route PUT /api/user/change-password
+export const changePassword = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { oldPassword, newPassword } = req.body;
+    const { userId } = req.user;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
+    const isMatch = await bcrypt.compare(oldPassword, user.password);
+    if (!isMatch) {
+      res.status(401).json({ message: 'Old password incorrect' });
+      return;
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 12);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedNewPassword },
+    });
+
+    res.status(200).json({ message: 'Password changed successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Could not change password' });
+  }
+};
+
+// @desc Upload profile photo
+// @route POST /api/user/upload-photo  
+export const uploadProfilePhoto = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ message: 'No file uploaded' });
+      return;
+    }
+
+    const imagePath = `/uploads/${req.file.filename}`;
+    const { userId } = req.user;
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { profileImage: imagePath },
+    });
+
+    res.status(200).json({ 
+      message: 'Photo uploaded successfully', 
+      path: imagePath 
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Upload failed' });
+  }
+};
