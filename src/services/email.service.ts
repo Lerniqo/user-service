@@ -64,24 +64,30 @@ export const sendPasswordResetEmail = async (
 
 export const sendVerificationEmail = async (
   userEmail: string,
-  token: string
+  verificationCode: string
 ): Promise<void> => {
   try {
     const transporter = createTransporter();
-    
-    // The verification URL should point to your frontend application
-    const verificationUrl = `${config.cors.frontendUrl}/verify-email?token=${token}`;
 
     const mailOptions = {
       from: `"Learniqo" <${config.email.user}>`,
       to: userEmail,
       subject: "Verify Your Email Address",
       html: `
-        <h1>Email Verification</h1>
-        <p>Thank you for registering! Please click the link below to verify your email address:</p>
-        <a href="${verificationUrl}" style="background-color: #4CAF50; color: white; padding: 14px 25px; text-align: center; text-decoration: none; display: inline-block;">Verify Email</a>
-        <p>If you did not create an account, please ignore this email.</p>
-        <p>This verification link will expire in 24 hours.</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #333; text-align: center;">Email Verification</h1>
+          <p style="font-size: 16px; color: #555;">Thank you for registering with Learniqo! Please use the verification code below to verify your email address:</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <div style="background-color: #f8f9fa; border: 2px solid #4CAF50; border-radius: 8px; padding: 20px; display: inline-block;">
+              <h2 style="margin: 0; color: #4CAF50; font-size: 32px; letter-spacing: 8px; font-weight: bold;">${verificationCode}</h2>
+            </div>
+          </div>
+          
+          <p style="font-size: 14px; color: #666; text-align: center;">Enter this code in the verification form to complete your registration.</p>
+          <p style="font-size: 14px; color: #666; text-align: center;">If you did not create an account, please ignore this email.</p>
+          <p style="font-size: 12px; color: #999; text-align: center;">This verification code will expire in 24 hours.</p>
+        </div>
       `,
     };
 

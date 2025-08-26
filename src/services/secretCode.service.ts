@@ -76,7 +76,8 @@ export class SecretCodeService {
    * Generate a verification code for email verification
    */
   static generateVerificationCode(): string {
-    return crypto.randomBytes(32).toString('hex');
+    // Generate a 6-digit code
+    return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
   /**
