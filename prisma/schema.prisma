@@ -20,6 +20,7 @@ model User {
   isVerified           Boolean   @default(false) @map("is_verified")
   profileImage         String?   @map("profile_image")
   verificationCode     String?   @unique @map("verification_code")
+  verificationExpires  DateTime? @map("verification_expires")
   passwordResetCode    String?   @unique @map("password_reset_code")
   passwordResetExpires DateTime? @map("password_reset_expires")
   refreshTokens        String[]  @map("refresh_tokens") @db.Text

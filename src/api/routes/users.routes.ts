@@ -3,6 +3,7 @@ import { body } from 'express-validator';
 import {
   register,
   verifyEmail,
+  resendVerificationCode,
   login,
   refreshToken,
   logout,
@@ -33,7 +34,12 @@ const loginValidation = [
 ];
 
 const verifyEmailValidation = [
-  body('code', 'Verification code is required').not().isEmpty(),
+  body('email', 'Please include a valid email').isEmail(),
+  body('code', 'Verification code must be 6 digits').isLength({ min: 6, max: 6 }).isNumeric(),
+];
+
+const resendVerificationValidation = [
+  body('email', 'Please include a valid email').isEmail(),
 ];
 
 const completeProfileValidation = [
@@ -57,6 +63,7 @@ const updateProfileValidation = [
 // Public routes
 router.post('/register', registerValidation, register);
 router.post('/verify-email', verifyEmailValidation, verifyEmail);
+router.post('/resend-verification', resendVerificationValidation, resendVerificationCode);
 router.post('/complete-profile/:userId', completeProfileValidation, completeProfile);
 router.post('/login', loginValidation, login);
 router.post('/refresh-token', refreshToken);
