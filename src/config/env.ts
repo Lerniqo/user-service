@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 // Load environment variables
 dotenv.config();
 
+console.log(process.env.DATABASE_URL);
 export const config = {
   database: {
     url: process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5433/userservice',
