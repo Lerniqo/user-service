@@ -1,10 +1,16 @@
 import nodemailer from "nodemailer";
 import { config } from "../config/env";
+import { log } from "../config/logger";
 
 // Verify email configuration
 const verifyEmailConfig = () => {
   if (!config.email.user || !config.email.pass) {
-    console.error('Email configuration missing. Please check SMTP_USER and SMTP_PASS environment variables.');
+    log.error('Email configuration missing', undefined, {
+      hasUser: !!config.email.user,
+      hasPass: !!config.email.pass,
+      host: config.email.host,
+      port: config.email.port
+    });
     return false;
   }
   return true;
@@ -13,8 +19,16 @@ const verifyEmailConfig = () => {
 // Create transporter for Gmail SMTP
 const createTransporter = () => {
   if (!verifyEmailConfig()) {
-    throw new Error('Email configuration is incomplete');
+    const error = new Error('Email configuration is incomplete');
+    log.error('Failed to create email transporter', error);
+    throw error;
   }
+
+  log.debug('Creating email transporter', {
+    host: config.email.host,
+    port: config.email.port,
+    user: config.email.user?.substring(0, 5) + '***' // Log partial email for debugging
+  });
 
   return nodemailer.createTransport({
     host: config.email.host,
@@ -34,7 +48,11 @@ export const sendPasswordResetEmail = async (
   userEmail: string,
   token: string
 ): Promise<void> => {
+  const startTime = Date.now();
+  
   try {
+    log.info('Sending password reset email', { email: userEmail });
+    
     const transporter = createTransporter();
     
     // The reset URL should point to your frontend app's reset password page
@@ -54,19 +72,32 @@ export const sendPasswordResetEmail = async (
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`Password reset email sent to ${userEmail}. Message ID: ${info.messageId}`);
+    
+    const responseTime = Date.now() - startTime;
+    log.info('Password reset email sent successfully', {
+      email: userEmail,
+      messageId: info.messageId,
+      responseTime: `${responseTime}ms`
+    });
   } catch (error) {
-    console.error("Error sending password reset email:", error);
+    const responseTime = Date.now() - startTime;
+    log.error('Failed to send password reset email', error, {
+      email: userEmail,
+      responseTime: `${responseTime}ms`
+    });
     throw new Error(`Failed to send password reset email: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
-
 
 export const sendVerificationEmail = async (
   userEmail: string,
   verificationCode: string
 ): Promise<void> => {
+  const startTime = Date.now();
+  
   try {
+    log.info('Sending verification email', { email: userEmail });
+    
     const transporter = createTransporter();
 
     const mailOptions = {
@@ -84,30 +115,46 @@ export const sendVerificationEmail = async (
             </div>
           </div>
           
-          <p style="font-size: 14px; color: #666; text-align: center;">Enter this code in the verification form to complete your registration.</p>
-          <p style="font-size: 14px; color: #666; text-align: center;">If you did not create an account, please ignore this email.</p>
-          <p style="font-size: 12px; color: #999; text-align: center;">This verification code will expire in 24 hours.</p>
+          <p style="font-size: 14px; color: #777; text-align: center;">
+            This verification code will expire in 24 hours for security reasons.
+          </p>
+          
+          <p style="font-size: 14px; color: #777; text-align: center;">
+            If you did not create an account with Learniqo, please ignore this email.
+          </p>
         </div>
       `,
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`Verification email sent to ${userEmail}. Message ID: ${info.messageId}`);
+    
+    const responseTime = Date.now() - startTime;
+    log.info('Verification email sent successfully', {
+      email: userEmail,
+      messageId: info.messageId,
+      responseTime: `${responseTime}ms`
+    });
   } catch (error) {
-    console.error("Error sending verification email:", error);
+    const responseTime = Date.now() - startTime;
+    log.error('Failed to send verification email', error, {
+      email: userEmail,
+      responseTime: `${responseTime}ms`
+    });
     throw new Error(`Failed to send verification email: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 };
 
-// Test email configuration
 export const testEmailConnection = async (): Promise<boolean> => {
   try {
+    log.info('Testing email connection');
+    
     const transporter = createTransporter();
     await transporter.verify();
-    console.log('Email server connection verified successfully');
+    
+    log.info('Email connection test successful');
     return true;
   } catch (error) {
-    console.error('Email server connection failed:', error);
+    log.error('Email connection test failed', error);
     return false;
   }
 };

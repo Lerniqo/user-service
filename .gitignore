@@ -5,3 +5,7 @@ node_modules
 /generated/prisma
 
 dist
+
+# Log files
+logs/
+*.log

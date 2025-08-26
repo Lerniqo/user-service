@@ -5,6 +5,7 @@ import prisma from '../../config/prisma';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../../services/email.service';
 import { SecretCodeService } from '../../services/secretCode.service';
 import crypto from 'crypto';
+import { log } from '../../config/logger';
 import {
   AuthenticatedRequest,
   RegisterStudentData,
@@ -16,8 +17,22 @@ import {
 
 // POST /users/register - Step 1: Basic registration
 export const register = async (req: Request, res: Response): Promise<void> => {
+  const startTime = Date.now();
+  const { email, role = "Student" } = req.body;
+  
+  log.info('User registration attempt', { 
+    email: email?.toLowerCase(), 
+    role, 
+    ip: req.ip 
+  });
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    log.warn('Registration validation failed', { 
+      email: email?.toLowerCase(), 
+      errors: errors.array(),
+      ip: req.ip 
+    });
     res.status(400).json({ errors: errors.array() });
     return;
   }
@@ -35,6 +50,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     });
 
     if (existingUser) {
+      log.warn('Registration attempt with existing email', { 
+        email: email.toLowerCase(), 
+        existingUserId: existingUser.id,
+        ip: req.ip 
+      });
       res.status(400).json({ message: "User with this email already exists." });
       return;
     }
@@ -56,8 +76,28 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       },
     });
 
+    log.database('User created', 'user', Date.now() - startTime, {
+      userId: user.id,
+      email: user.email,
+      role: user.role
+    });
+
     // Send verification email
     await sendVerificationEmail(user.email, verificationCode);
+    
+    log.info('Verification email sent', { 
+      userId: user.id, 
+      email: user.email 
+    });
+
+    const responseTime = Date.now() - startTime;
+    log.info('User registration successful', { 
+      userId: user.id, 
+      email: user.email, 
+      role: user.role, 
+      responseTime: `${responseTime}ms`,
+      ip: req.ip 
+    });
 
     res.status(201).json({
       userId: user.id,
@@ -66,7 +106,12 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       message: "Registration successful! Please check your email to verify your account before completing your profile."
     });
   } catch (error) {
-    console.error(error);
+    log.error('User registration failed', error, { 
+      email: email?.toLowerCase(), 
+      role, 
+      ip: req.ip,
+      responseTime: `${Date.now() - startTime}ms`
+    });
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -302,8 +347,22 @@ export const completeProfile = async (req: Request, res: Response): Promise<void
 
 // POST /users/login
 export const login = async (req: Request, res: Response): Promise<void> => {
+  const startTime = Date.now();
+  const { email } = req.body;
+  
+  log.info('User login attempt', { 
+    email: email?.toLowerCase(), 
+    ip: req.ip,
+    userAgent: req.get('User-Agent')
+  });
+
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    log.warn('Login validation failed', { 
+      email: email?.toLowerCase(), 
+      errors: errors.array(),
+      ip: req.ip 
+    });
     res.status(400).json({ errors: errors.array() });
     return;
   }
@@ -316,11 +375,20 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
 
     if (!user) {
+      log.security('Login attempt with non-existent email', { 
+        email: email.toLowerCase(), 
+        ip: req.ip 
+      });
       res.status(401).json({ message: "Invalid credentials." });
       return;
     }
 
     if (!user.isVerified) {
+      log.warn('Login attempt with unverified email', { 
+        userId: user.id,
+        email: user.email, 
+        ip: req.ip 
+      });
       res.status(401).json({
         message: "Email not verified. Please check your inbox."
       });
@@ -328,6 +396,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     if (user.fullName === "") {
+      log.warn('Login attempt with incomplete profile', { 
+        userId: user.id,
+        email: user.email, 
+        ip: req.ip 
+      });
       res.status(401).json({
         message: "Profile not completed. Please complete your profile first.",
         userId: user.id,
@@ -338,6 +411,11 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
     if (!isPasswordCorrect) {
+      log.security('Login attempt with incorrect password', { 
+        userId: user.id,
+        email: user.email, 
+        ip: req.ip 
+      });
       res.status(401).json({ message: "Invalid credentials." });
       return;
     }
@@ -356,6 +434,10 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       }
     });
 
+    log.database('Refresh token stored', 'user', Date.now() - startTime, {
+      userId: user.id
+    });
+
     // Set HTTP-only cookies
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
@@ -371,11 +453,24 @@ export const login = async (req: Request, res: Response): Promise<void> => {
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
+    const responseTime = Date.now() - startTime;
+    log.info('User login successful', { 
+      userId: user.id,
+      email: user.email, 
+      role: user.role,
+      responseTime: `${responseTime}ms`,
+      ip: req.ip 
+    });
+
     res.status(200).json({
       message: "Login successful"
     });
   } catch (error) {
-    console.error(error);
+    log.error('User login failed', error, { 
+      email: email?.toLowerCase(), 
+      ip: req.ip,
+      responseTime: `${Date.now() - startTime}ms`
+    });
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
