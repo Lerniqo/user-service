@@ -1,18 +1,28 @@
-/*
-  Warnings:
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
 
-  - You are about to drop the column `experience_summary` on the `users` table. All the data in the column will be lost.
-  - You are about to drop the column `grade_level` on the `users` table. All the data in the column will be lost.
-  - You are about to drop the column `learning_goals` on the `users` table. All the data in the column will be lost.
-  - You are about to drop the column `qualifications` on the `users` table. All the data in the column will be lost.
+-- CreateEnum
+CREATE TYPE "public"."UserRole" AS ENUM ('Student', 'Teacher', 'Admin');
 
-*/
--- AlterTable
-ALTER TABLE "public"."users" DROP COLUMN "experience_summary",
-DROP COLUMN "grade_level",
-DROP COLUMN "learning_goals",
-DROP COLUMN "qualifications",
-ADD COLUMN     "refresh_tokens" TEXT[];
+-- CreateTable
+CREATE TABLE "public"."users" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "password" TEXT NOT NULL,
+    "role" "public"."UserRole" NOT NULL,
+    "full_name" TEXT NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "is_verified" BOOLEAN NOT NULL DEFAULT false,
+    "profile_image" TEXT,
+    "verification_code" TEXT,
+    "password_reset_code" TEXT,
+    "password_reset_expires" TIMESTAMP(3),
+    "refresh_tokens" TEXT[],
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
 
 -- CreateTable
 CREATE TABLE "public"."students" (
@@ -50,6 +60,15 @@ CREATE TABLE "public"."admins" (
 );
 
 -- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "public"."users"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_verification_code_key" ON "public"."users"("verification_code");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_password_reset_code_key" ON "public"."users"("password_reset_code");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "students_user_id_key" ON "public"."students"("user_id");
 
 -- CreateIndex
@@ -66,3 +85,4 @@ ALTER TABLE "public"."teachers" ADD CONSTRAINT "teachers_user_id_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "public"."admins" ADD CONSTRAINT "admins_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
