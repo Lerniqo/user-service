@@ -37,12 +37,19 @@ model User {
 
 // Student-specific information
 model Student {
-  id            String   @id @default(cuid())
-  userId        String   @unique @map("user_id")
-  gradeLevel    Int?     @map("grade_level")
-  learningGoals String?  @map("learning_goals") @db.Text
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id                  String   @id @default(cuid())
+  userId              String   @unique @map("user_id")
+  school              String?
+  birthday            DateTime
+  gradeLevel          Int      @map("grade_level")
+  gender              String
+  learningGoals       String?  @map("learning_goals") @db.Text
+  parentGuardianName  String?  @map("parent_guardian_name")
+  relationship        String?
+  parentContact       String?  @map("parent_contact")
+  addressCity         String?  @map("address_city")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
 
   // Relationship
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -52,12 +59,18 @@ model Student {
 
 // Teacher-specific information
 model Teacher {
-  id                String   @id @default(cuid())
-  userId            String   @unique @map("user_id")
-  qualifications    String?  @db.Text
-  experienceSummary String?  @map("experience_summary") @db.Text
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  id                      String   @id @default(cuid())
+  userId                  String   @unique @map("user_id")
+  birthday                DateTime
+  address                 String   @db.Text
+  phoneNumber             String   @map("phone_number")
+  nationalIdPassport      String   @map("national_id_passport")
+  yearsOfExperience       Int      @map("years_of_experience")
+  highestEducationLevel   String   @map("highest_education_level")
+  qualifications          String?  @db.Text
+  shortBio                String?  @map("short_bio") @db.Text
+  createdAt               DateTime @default(now()) @map("created_at")
+  updatedAt               DateTime @updatedAt @map("updated_at")
 
   // Relationship
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

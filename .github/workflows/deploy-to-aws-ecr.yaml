@@ -87,3 +87,8 @@ jobs:
           IMAGE_TAG=${GITHUB_SHA::8}
           echo "Image URI: $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$IMAGE_NAME:$IMAGE_TAG"
           echo "Latest URI: $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$IMAGE_NAME:latest"
+
+
+      - name: Trigger AWS ECS to update service
+        run: |
+          aws ecs update-service --cluster dev-cluster --service user-service --force-new-deployment

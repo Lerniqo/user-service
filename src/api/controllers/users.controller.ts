@@ -185,7 +185,6 @@ export const verifyEmail = async (req: Request, res: Response): Promise<void> =>
       message: "Email verified successfully! Please complete your profile to continue.",
       userId: user.id,
       role: user.role,
-      profileCompleted: user.fullName !== ""
     });
   } catch (error) {
     console.error(error);
@@ -264,14 +263,7 @@ export const completeProfile = async (req: Request, res: Response): Promise<void
 
   try {
     const { userId } = req.params;
-    const { 
-      fullName,
-      gradeLevel,
-      learningGoals,
-      qualifications,
-      experienceSummary,
-      department
-    } = req.body;
+    const requestData = req.body;
 
     // Find the user and check if verified
     const user = await prisma.user.findUnique({
@@ -293,38 +285,108 @@ export const completeProfile = async (req: Request, res: Response): Promise<void
       return;
     }
 
+    // Role-specific validation for required fields
+    const roleValidationErrors: string[] = [];
+    
+    if (user.role === "Student") {
+      if (!requestData.birthday) roleValidationErrors.push("Birthday is required for students");
+      if (!requestData.gradeLevel) roleValidationErrors.push("Grade level is required for students");
+      if (!requestData.gender) roleValidationErrors.push("Gender is required for students");
+      
+      // Age validation for students (5-25 years)
+      if (requestData.birthday) {
+        const birthDate = new Date(requestData.birthday);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        
+        if (age < 5 || age > 25) {
+          roleValidationErrors.push("Student age must be between 5 and 25 years");
+        }
+      }
+    } else if (user.role === "Teacher") {
+      if (!requestData.birthday) roleValidationErrors.push("Birthday is required for teachers");
+      if (!requestData.address) roleValidationErrors.push("Address is required for teachers");
+      if (!requestData.phoneNumber) roleValidationErrors.push("Phone number is required for teachers");
+      if (!requestData.nationalIdPassport) roleValidationErrors.push("National ID/Passport is required for teachers");
+      if (requestData.yearsOfExperience === undefined || requestData.yearsOfExperience === null) roleValidationErrors.push("Years of experience is required for teachers");
+      if (!requestData.highestEducationLevel) roleValidationErrors.push("Highest education level is required for teachers");
+      
+      // Age validation for teachers (21-80 years)
+      if (requestData.birthday) {
+        const birthDate = new Date(requestData.birthday);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
+        
+        if (age < 21 || age > 80) {
+          roleValidationErrors.push("Teacher age must be between 21 and 80 years");
+        }
+      }
+    }
+
+    if (roleValidationErrors.length > 0) {
+      res.status(400).json({ 
+        message: "Validation failed", 
+        errors: roleValidationErrors.map(error => ({ msg: error, param: "role_specific" }))
+      });
+      return;
+    }
+
     // Complete profile with transaction
     const result = await prisma.$transaction(async (tx) => {
       // Update user with full name
       const updatedUser = await tx.user.update({
         where: { id: userId },
         data: {
-          fullName,
+          fullName: requestData.fullName,
         },
       });
 
-      // Create role-specific profile
+      // Create role-specific profile with comprehensive data
       if (user.role === "Student") {
         await tx.student.create({
           data: {
             userId: user.id,
-            gradeLevel: gradeLevel || null,
-            learningGoals: learningGoals || null,
+            school: requestData.school || null,
+            birthday: new Date(requestData.birthday),
+            gradeLevel: requestData.gradeLevel,
+            gender: requestData.gender,
+            learningGoals: requestData.learningGoals || null,
+            parentGuardianName: requestData.parentGuardianName || null,
+            relationship: requestData.relationship || null,
+            parentContact: requestData.parentContact || null,
+            addressCity: requestData.addressCity || null,
           },
         });
       } else if (user.role === "Teacher") {
         await tx.teacher.create({
           data: {
             userId: user.id,
-            qualifications: qualifications || null,
-            experienceSummary: experienceSummary || null,
+            birthday: new Date(requestData.birthday),
+            address: requestData.address,
+            phoneNumber: requestData.phoneNumber,
+            nationalIdPassport: requestData.nationalIdPassport,
+            yearsOfExperience: requestData.yearsOfExperience,
+            highestEducationLevel: requestData.highestEducationLevel,
+            qualifications: requestData.qualifications || null,
+            shortBio: requestData.shortBio || null,
           },
         });
       } else if (user.role === "Admin") {
+        // Maintain backward compatibility for Admin role
         await tx.admin.create({
           data: {
             userId: user.id,
-            department: department || null,
+            department: requestData.department || null,
           },
         });
       }
@@ -340,7 +402,7 @@ export const completeProfile = async (req: Request, res: Response): Promise<void
       fullName: result.fullName,
     });
   } catch (error) {
-    console.error(error);
+    console.error('Complete profile error:', error);
     res.status(500).json({ message: "Internal Server Error" });
   }
 };
@@ -583,7 +645,7 @@ export const getMyProfile = async (req: AuthenticatedRequest, res: Response): Pr
       profileData.learningGoals = user.student.learningGoals;
     } else if (user.role === 'Teacher' && user.teacher) {
       profileData.qualifications = user.teacher.qualifications;
-      profileData.experienceSummary = user.teacher.experienceSummary;
+      profileData.shortBio = user.teacher.shortBio;
     } else if (user.role === 'Admin' && user.admin) {
       profileData.department = user.admin.department;
     }
@@ -628,7 +690,9 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response):
       } else if (role === 'Teacher') {
         const teacherFields: any = {};
         if (updateData.qualifications !== undefined) teacherFields.qualifications = updateData.qualifications;
-        if (updateData.experienceSummary !== undefined) teacherFields.experienceSummary = updateData.experienceSummary;
+        if (updateData.shortBio !== undefined) teacherFields.shortBio = updateData.shortBio;
+        // Backward compatibility: map experienceSummary to shortBio
+        if (updateData.experienceSummary !== undefined) teacherFields.shortBio = updateData.experienceSummary;
 
         if (Object.keys(teacherFields).length > 0) {
           await tx.teacher.update({
@@ -676,7 +740,7 @@ export const updateMyProfile = async (req: AuthenticatedRequest, res: Response):
       profileData.learningGoals = updatedUser!.student.learningGoals;
     } else if (updatedUser!.role === 'Teacher' && updatedUser!.teacher) {
       profileData.qualifications = updatedUser!.teacher.qualifications;
-      profileData.experienceSummary = updatedUser!.teacher.experienceSummary;
+      profileData.shortBio = updatedUser!.teacher.shortBio;
     } else if (updatedUser!.role === 'Admin' && updatedUser!.admin) {
       profileData.department = updatedUser!.admin.department;
     }
@@ -726,7 +790,7 @@ export const getAllTeachers = async (req: Request, res: Response): Promise<void>
       userId: teacher.id,
       fullName: teacher.fullName,
       qualifications: teacher.teacher?.qualifications || '',
-      experienceSummary: teacher.teacher?.experienceSummary || '',
+      shortBio: teacher.teacher?.shortBio || '',
       profileImage: teacher.profileImage,
     }));
 
@@ -764,7 +828,7 @@ export const getTeacherById = async (req: Request, res: Response): Promise<void>
       fullName: teacher.fullName,
       email: teacher.email,
       qualifications: teacher.teacher?.qualifications || '',
-      experienceSummary: teacher.teacher?.experienceSummary || '',
+      shortBio: teacher.teacher?.shortBio || '',
       profileImage: teacher.profileImage,
       createdAt: teacher.createdAt,
     };
@@ -850,7 +914,7 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
         userData.learningGoals = user.student.learningGoals;
       } else if (user.role === 'Teacher' && user.teacher) {
         userData.qualifications = user.teacher.qualifications;
-        userData.experienceSummary = user.teacher.experienceSummary;
+        userData.shortBio = user.teacher.shortBio;
       } else if (user.role === 'Admin' && user.admin) {
         userData.department = user.admin.department;
       }
@@ -914,7 +978,9 @@ export const updateUserById = async (req: Request, res: Response): Promise<void>
       } else if (user.role === 'Teacher' && user.teacher) {
         const teacherFields: any = {};
         if (updateData.qualifications !== undefined) teacherFields.qualifications = updateData.qualifications;
-        if (updateData.experienceSummary !== undefined) teacherFields.experienceSummary = updateData.experienceSummary;
+        if (updateData.shortBio !== undefined) teacherFields.shortBio = updateData.shortBio;
+        // Backward compatibility: map experienceSummary to shortBio
+        if (updateData.experienceSummary !== undefined) teacherFields.shortBio = updateData.experienceSummary;
 
         if (Object.keys(teacherFields).length > 0) {
           await tx.teacher.update({
@@ -963,7 +1029,7 @@ export const updateUserById = async (req: Request, res: Response): Promise<void>
       userData.learningGoals = updatedUser!.student.learningGoals;
     } else if (updatedUser!.role === 'Teacher' && updatedUser!.teacher) {
       userData.qualifications = updatedUser!.teacher.qualifications;
-      userData.experienceSummary = updatedUser!.teacher.experienceSummary;
+      userData.shortBio = updatedUser!.teacher.shortBio;
     } else if (updatedUser!.role === 'Admin' && updatedUser!.admin) {
       userData.department = updatedUser!.admin.department;
     }

@@ -9,3 +9,5 @@ dist
 # Log files
 logs/
 *.log
+
+.qoder/

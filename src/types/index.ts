@@ -41,15 +41,28 @@ export interface BasicRegistrationData {
 
 // Step 2 Profile completion types (After email verification)
 export interface CompleteStudentProfileData {
-  fullName: string;
-  gradeLevel?: number;
-  learningGoals?: string;
+  fullName: string;                    // Required
+  school?: string;                     // Optional
+  birthday: string;                    // Required (ISO date format)
+  gradeLevel: number;                  // Required (1-12)
+  gender: 'Male' | 'Female' | 'Other' | 'Prefer not to say'; // Required
+  learningGoals?: string;              // Optional
+  parentGuardianName?: string;         // Optional
+  relationship?: string;               // Optional
+  parentContact?: string;              // Optional (phone or email)
+  addressCity?: string;               // Optional
 }
 
 export interface CompleteTeacherProfileData {
-  fullName: string;
-  qualifications?: string;
-  experienceSummary?: string;
+  fullName: string;                    // Required
+  birthday: string;                    // Required (ISO date format)
+  address: string;                     // Required
+  phoneNumber: string;                 // Required
+  nationalIdPassport: string;          // Required
+  yearsOfExperience: number;           // Required (0-50)
+  highestEducationLevel: string;       // Required
+  qualifications?: string;             // Optional
+  shortBio?: string;                   // Optional (teaching philosophy)
 }
 
 export interface CompleteAdminProfileData {
@@ -87,10 +100,23 @@ export interface LoginData {
 // Profile update types
 export interface UpdateProfileData {
   fullName?: string;
+  // Student fields
+  school?: string;
   gradeLevel?: number;
+  gender?: string;
   learningGoals?: string;
+  parentGuardianName?: string;
+  relationship?: string;
+  parentContact?: string;
+  addressCity?: string;
+  // Teacher fields
+  address?: string;
+  phoneNumber?: string;
+  nationalIdPassport?: string;
+  yearsOfExperience?: number;
+  highestEducationLevel?: string;
   qualifications?: string;
-  experienceSummary?: string;
+  shortBio?: string;
 }
 
 export interface ChangePasswordData {
@@ -144,10 +170,25 @@ export interface UserProfileResponse {
   email: string;
   role: 'Student' | 'Teacher' | 'Admin';
   fullName: string;
+  // Student fields
+  school?: string;
+  birthday?: Date;
   gradeLevel?: number;
+  gender?: string;
   learningGoals?: string;
+  parentGuardianName?: string;
+  relationship?: string;
+  parentContact?: string;
+  addressCity?: string;
+  // Teacher fields
+  address?: string;
+  phoneNumber?: string;
+  nationalIdPassport?: string;
+  yearsOfExperience?: number;
+  highestEducationLevel?: string;
   qualifications?: string;
-  experienceSummary?: string;
+  shortBio?: string;
+  // Common fields
   profileImage?: string;
   isVerified: boolean;
   createdAt: Date;
@@ -197,4 +238,30 @@ export interface UploadedFile {
   destination: string;
   filename: string;
   path: string;
-} 
+}
+
+// Enhanced validation types
+export interface StudentValidationData {
+  fullName: string;
+  school?: string;
+  birthday: string;
+  gradeLevel: number;
+  gender: 'Male' | 'Female' | 'Other' | 'Prefer not to say';
+  learningGoals?: string;
+  parentGuardianName?: string;
+  relationship?: string;
+  parentContact?: string;
+  addressCity?: string;
+}
+
+export interface TeacherValidationData {
+  fullName: string;
+  birthday: string;
+  address: string;
+  phoneNumber: string;
+  nationalIdPassport: string;
+  yearsOfExperience: number;
+  highestEducationLevel: string;
+  qualifications?: string;
+  shortBio?: string;
+}
