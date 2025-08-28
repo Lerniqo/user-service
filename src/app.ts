@@ -28,9 +28,25 @@ app.use(express.json({ limit: '10mb' })); // To parse JSON bodies with size limi
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // To parse URL-encoded bodies
 app.use(cookieParser()); // To parse cookies
 
+
+
 app.use(
   cors({
-    origin: [config.cors.frontendUrl, "http://localhost:3000","https://main.d1sth71y2qgz43.amplifyapp.com"], // Allow requests from frontend
+    // origin: [config.cors.frontendUrl, "http://localhost:3000","https://main.d1sth71y2qgz43.amplifyapp.com"], // Allow requests from frontend
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        config.cors.frontendUrl,
+        "http://localhost:3000",
+        "https://main.d1sth71y2qgz43.amplifyapp.com"
+      ];
+
+      if (allowedOrigins.includes(origin) || !origin) {
+        return callback(null, true);
+      }
+
+      log.security("CORS request blocked", { origin });
+      return callback(new Error("Not allowed by CORS"), false);
+    },
     credentials: true, // Allow cookies if needed
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
