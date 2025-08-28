@@ -106,7 +106,7 @@ const completeProfileValidation = [
       
       // Check if it's an email or phone number
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      const phoneRegex = /^[\+]?[1-9][\d]{1,14}$/; // Basic international phone format
+      const phoneRegex = /^0[1-9][\d]{8}$/; // Basic international phone format
       
       if (!emailRegex.test(value) && !phoneRegex.test(value.replace(/[\s\-\(\)]/g, ''))) {
         throw new Error('Parent contact must be a valid email or phone number');
