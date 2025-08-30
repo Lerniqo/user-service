@@ -799,7 +799,9 @@ export const getAllTeachers = async (req: Request, res: Response): Promise<void>
 
     res.status(200).json({
       message: "Successfully retrieved teachers",
-      data: formattedTeachers,
+      data: {
+        teachers: formattedTeachers,
+      },
       success: true,
     });
 
@@ -843,7 +845,9 @@ export const getTeacherById = async (req: Request, res: Response): Promise<void>
     
     res.status(200).json({
       message: "Successfully retrieved teacher",
-      data: formattedTeacher,
+      data: {
+        teacher: formattedTeacher,
+      },
       success: true,
     })
   } catch (error) {
@@ -886,7 +890,9 @@ export const getStudentById = async (req: Request, res: Response): Promise<void>
 
     res.status(200).json({
       message: "Successfully retrieved student",
-      data: formattedStudent,
+      data: {
+        student: formattedStudent,
+      },
       success: true,
     });
   } catch (error) {
@@ -940,7 +946,9 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
 
     res.status(200).json({
       message: "Successfully retrieved users",
-      data: formattedUsers,
+      data: {
+        users: formattedUsers,
+      },
       success: true,
     });
   } catch (error) {
@@ -1056,7 +1064,9 @@ export const updateUserById = async (req: Request, res: Response): Promise<void>
 
     res.status(200).json({
       message: "Successfully updated user",
-      data: userData,
+      data: {
+        user: userData,
+      },
       success: true,
     });
   } catch (error) {
