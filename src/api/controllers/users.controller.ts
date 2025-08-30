@@ -501,13 +501,6 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
 
     // Set HTTP-only cookies
-    res.cookie('accessToken', accessToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60 * 1000, // 15 minutes
-    });
-
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -525,6 +518,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
 
     res.status(200).json({
+      data: {
+        accessToken,
+        user: {
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          fullName: user.fullName
+        },
+      },
       message: "Login successful"
     });
   } catch (error) {
