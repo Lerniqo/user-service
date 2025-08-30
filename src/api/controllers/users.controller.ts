@@ -245,6 +245,7 @@ export const resendVerificationCode = async (req: Request, res: Response): Promi
     await sendVerificationEmail(user.email, newVerificationCode);
 
     res.status(200).json({
+      success: true,
       message: "A new verification code has been sent to your email."
     });
   } catch (error) {
@@ -796,7 +797,12 @@ export const getAllTeachers = async (req: Request, res: Response): Promise<void>
       profileImage: teacher.profileImage,
     }));
 
-    res.status(200).json(formattedTeachers);
+    res.status(200).json({
+      message: "Successfully retrieved teachers",
+      data: formattedTeachers,
+      success: true,
+    });
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error retrieving teachers" });
@@ -834,8 +840,12 @@ export const getTeacherById = async (req: Request, res: Response): Promise<void>
       profileImage: teacher.profileImage,
       createdAt: teacher.createdAt,
     };
-
-    res.status(200).json(formattedTeacher);
+    
+    res.status(200).json({
+      message: "Successfully retrieved teacher",
+      data: formattedTeacher,
+      success: true,
+    })
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error retrieving teacher" });
@@ -874,7 +884,11 @@ export const getStudentById = async (req: Request, res: Response): Promise<void>
       createdAt: student.createdAt,
     };
 
-    res.status(200).json(formattedStudent);
+    res.status(200).json({
+      message: "Successfully retrieved student",
+      data: formattedStudent,
+      success: true,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error retrieving student" });
@@ -924,7 +938,11 @@ export const getAllUsers = async (req: Request, res: Response): Promise<void> =>
       return userData;
     });
 
-    res.status(200).json(formattedUsers);
+    res.status(200).json({
+      message: "Successfully retrieved users",
+      data: formattedUsers,
+      success: true,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error retrieving users" });
@@ -1036,7 +1054,11 @@ export const updateUserById = async (req: Request, res: Response): Promise<void>
       userData.department = updatedUser!.admin.department;
     }
 
-    res.status(200).json(userData);
+    res.status(200).json({
+      message: "Successfully updated user",
+      data: userData,
+      success: true,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Error updating user" });
@@ -1072,7 +1094,10 @@ export const changePassword = async (req: AuthenticatedRequest, res: Response): 
       data: { password: hashedNewPassword },
     });
 
-    res.status(200).json({ message: 'Password changed successfully' });
+    res.status(200).json({
+      message: 'Password changed successfully',
+      success: true,
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Could not change password' });
@@ -1096,9 +1121,12 @@ export const uploadProfilePhoto = async (req: AuthenticatedRequest, res: Respons
       data: { profileImage: imagePath },
     });
 
-    res.status(200).json({ 
-      message: 'Photo uploaded successfully', 
-      path: imagePath 
+    res.status(200).json({
+      message: 'Photo uploaded successfully',
+      data: {
+        profileImage: imagePath,
+      },
+      success: true,
     });
   } catch (err) {
     console.error(err);
