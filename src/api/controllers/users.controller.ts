@@ -840,13 +840,20 @@ export const getTeacherById = async (req: Request, res: Response): Promise<void>
       qualifications: teacher.teacher?.qualifications || '',
       shortBio: teacher.teacher?.shortBio || '',
       profileImage: teacher.profileImage,
+      isVerified: teacher.isVerified,
+      birthday: teacher.teacher?.birthday,
+      address: teacher.teacher?.address,
+      phoneNumber: teacher.teacher?.phoneNumber,
+      nationalIdPassport: teacher.teacher?.nationalIdPassport,
+      yearsOfExperience: teacher.teacher?.yearsOfExperience,
+      highestEducationLevel: teacher.teacher?.highestEducationLevel,
       createdAt: teacher.createdAt,
     };
     
     res.status(200).json({
       message: "Successfully retrieved teacher",
       data: {
-        teacher: formattedTeacher,
+        ...formattedTeacher,
       },
       success: true,
     })
@@ -885,13 +892,21 @@ export const getStudentById = async (req: Request, res: Response): Promise<void>
       learningGoals: student.student?.learningGoals || '',
       profileImage: student.profileImage,
       isVerified: student.isVerified,
+      birthday: student.student?.birthday,
+      school: student.student?.school || '',
+      gender: student.student?.gender,
+      parentGuardianName: student.student?.parentGuardianName || '',
+      relationship: student.student?.relationship || '',
+      parentContact: student.student?.parentContact || '',
+      addressCity: student.student?.addressCity || '',
+
       createdAt: student.createdAt,
     };
 
     res.status(200).json({
       message: "Successfully retrieved student",
       data: {
-        student: formattedStudent,
+        ...formattedStudent,
       },
       success: true,
     });

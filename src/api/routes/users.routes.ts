@@ -131,7 +131,7 @@ const completeProfileValidation = [
       if (!value) return true;
       
       // Basic phone validation - accepts international format
-      const phoneRegex = /^[\+]?[1-9][\d]{1,14}$/;
+      const phoneRegex = /^0[1-9][\d]{8}$/;
       const cleanPhone = value.replace(/[\s\-\(\)]/g, '');
       
       if (!phoneRegex.test(cleanPhone)) {
