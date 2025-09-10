@@ -519,6 +519,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     });
 
     res.status(200).json({
+      success: true,
       data: {
         accessToken,
         user: {
@@ -566,9 +567,10 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
 
     // Generate new access token
     const newAccessToken = SecretCodeService.generateSessionCode(user.id, user.email, user.role);
+    const newRefreshToken = SecretCodeService.generateSessionCode(user.id, user.email, user.role);
 
     // Set new access token cookie
-    res.cookie('accessToken', newAccessToken, {
+    res.cookie('refreshToken', newRefreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'none',
@@ -576,7 +578,17 @@ export const refreshToken = async (req: Request, res: Response): Promise<void> =
     });
 
     res.status(200).json({
-      message: "Token refreshed successfully"
+      message: "Token refreshed successfully",
+      success: true,
+      data: {
+        accessToken: newAccessToken,
+        user: {
+          userId: user.id,
+          email: user.email,
+          role: user.role,
+          fullName: user.fullName
+        }
+      }
     });
   } catch (error) {
     console.error(error);
