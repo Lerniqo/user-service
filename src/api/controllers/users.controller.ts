@@ -652,6 +652,7 @@ export const getMyProfile = async (req: AuthenticatedRequest, res: Response): Pr
       profileImage: user.profileImage,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+      isProfileCompleted: true,
     };
 
     // Add role-specific data
@@ -663,6 +664,8 @@ export const getMyProfile = async (req: AuthenticatedRequest, res: Response): Pr
       profileData.shortBio = user.teacher.shortBio;
     } else if (user.role === 'Admin' && user.admin) {
       profileData.department = user.admin.department;
+    } else {
+      profileData.isProfileCompleted = false
     }
 
     res.status(200).json(profileData);
