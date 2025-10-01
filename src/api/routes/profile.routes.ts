@@ -1,67 +1,16 @@
-﻿import express, { Router } from 'express';
+import express, { Router } from 'express';
 import { body } from 'express-validator';
-// Import from the new separated controllers
-import {
-  register,
-  login,
-  refreshToken,
-  logout,
-} from '../controllers/auth.controller';
-import {
-  verifyEmail,
-  resendVerificationCode,
-} from '../controllers/verification.controller';
 import {
   completeProfile,
   getMyProfile,
   updateMyProfile,
   deleteMyAccount,
 } from '../controllers/profile.controller';
-import {
-  changePassword,
-  requestPasswordReset,
-  resetPassword,
-} from '../controllers/password.controller';
-import {
-  getAllTeachers,
-  getTeacherById,
-} from '../controllers/teachers.controller';
-import {
-  createTeacherReview,
-  getTeacherReviews,
-  updateTeacherReview,
-  deleteTeacherReview,
-} from '../controllers/reviews.controller';
-import {
-  getStudentById,
-  getAllUsers,
-  updateUserById,
-} from '../controllers/users.controller';
-import { protect, checkRole } from '../middlewares/auth.middleware';
+import { protect } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();
 
-// Validation middleware (keeping original validation)
-const registerValidation = [
-  body('email', 'Please include a valid email').isEmail(),
-  body('password', 'Password must be 6 or more characters').isLength({ min: 6 }),
-  body('role', 'Role must be Student, Teacher, or Admin').isIn(['Student', 'Teacher', 'Admin']),
-];
-
-const loginValidation = [
-  body('email', 'Please include a valid email').isEmail(),
-  body('password', 'Password is required').exists(),
-];
-
-const verifyEmailValidation = [
-  body('email', 'Please include a valid email').isEmail(),
-  body('code', 'Verification code must be 6 digits').isLength({ min: 6, max: 6 }).isNumeric(),
-];
-
-const resendVerificationValidation = [
-  body('email', 'Please include a valid email').isEmail(),
-];
-
+// Validation middleware
 const completeProfileValidation = [
   body('fullName')
     .trim()
@@ -207,83 +156,14 @@ const updateProfileValidation = [
   body('department').optional().isString().withMessage('Department must be a string'),
 ];
 
-// Review validation middleware
-const createReviewValidation = [
-  body('rating')
-    .isInt({ min: 1, max: 5 })
-    .withMessage('Rating must be between 1 and 5'),
-  body('comment')
-    .optional()
-    .isLength({ max: 1000 })
-    .withMessage('Comment must not exceed 1000 characters'),
-  body('isAnonymous')
-    .optional()
-    .isBoolean()
-    .withMessage('isAnonymous must be a boolean'),
-];
+// Public routes
+router.post('/complete/:userId', completeProfileValidation, completeProfile);
 
-const updateReviewValidation = [
-  body('rating')
-    .optional()
-    .isInt({ min: 1, max: 5 })
-    .withMessage('Rating must be between 1 and 5'),
-  body('comment')
-    .optional()
-    .isLength({ max: 1000 })
-    .withMessage('Comment must not exceed 1000 characters'),
-  body('isAnonymous')
-    .optional()
-    .isBoolean()
-    .withMessage('isAnonymous must be a boolean'),
-];
-
-// ====== ORIGINAL API ENDPOINTS (UNCHANGED) ======
-
-// Public routes - SAME AS BEFORE
-router.post('/register', registerValidation, register);
-router.post('/verify-email', verifyEmailValidation, verifyEmail);
-router.post('/resend-verification', resendVerificationValidation, resendVerificationCode);
-router.post('/complete-profile/:userId', completeProfileValidation, completeProfile);
-router.post(
-  '/request-password-reset',
-  [body('email', 'Please include a valid email').isEmail()],
-  requestPasswordReset
-);
-router.post(
-  '/reset-password',
-  [
-    body('token', 'Token is required').isString().notEmpty(),
-    body('newPassword', 'New password must be at least 6 characters').isLength({ min: 6 }),
-  ],
-  resetPassword
-);
-router.post('/login', loginValidation, login);
-router.post('/refresh-token', refreshToken);
-
-// Public teacher routes - SAME AS BEFORE
-router.get('/teachers', getAllTeachers);
-router.get('/teachers/:id', getTeacherById);
-
-// Public teacher review routes - SAME AS BEFORE
-router.get('/teachers/:id/reviews', getTeacherReviews);
-
-// Protected routes - SAME AS BEFORE
+// Protected routes
 router.use(protect); // All routes below require authentication
 
-// User profile management - SAME AS BEFORE
 router.get('/me', getMyProfile);
 router.put('/me', updateProfileValidation, updateMyProfile);
 router.delete('/me', deleteMyAccount);
-router.post('/logout', logout);
-
-// Teacher review management - SAME AS BEFORE
-router.post('/teachers/:id/reviews', checkRole(['Student']), createReviewValidation, createTeacherReview);
-router.put('/reviews/:id', checkRole(['Student']), updateReviewValidation, updateTeacherReview);
-router.delete('/reviews/:id', checkRole(['Student', 'Admin']), deleteTeacherReview);
-
-// Admin-only routes - SAME AS BEFORE
-router.get('/students/:id', checkRole(['Admin']), getStudentById);
-router.get('/', checkRole(['Admin']), getAllUsers);
-router.put('/:id', checkRole(['Admin']), updateUserById);
 
 export default router;

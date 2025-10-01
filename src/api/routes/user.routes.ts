@@ -3,9 +3,13 @@ import { body } from 'express-validator';
 import multer from 'multer';
 import {
   updateMyProfile as updateProfile,
+} from '../controllers/profile.controller';
+import {
   changePassword,
+} from '../controllers/password.controller';
+import {
   uploadProfilePhoto,
-} from '../controllers/users.controller';
+} from '../controllers/upload.controller';
 import { protect } from '../middlewares/auth.middleware';
 
 const router: Router = express.Router();

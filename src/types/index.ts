@@ -198,8 +198,11 @@ export interface UserProfileResponse {
 export interface TeacherPublicProfile {
   userId: string;
   fullName: string;
-  qualifications: string;
-  experienceSummary: string;
+  qualifications?: string;
+  shortBio?: string;
+  yearsOfExperience: number;
+  reviewStats?: TeacherReviewStats;
+  recentReviews?: TeacherReviewResponse[];
 }
 
 export interface SystemStatistics {
@@ -264,4 +267,46 @@ export interface TeacherValidationData {
   highestEducationLevel: string;
   qualifications?: string;
   shortBio?: string;
+}
+
+// Teacher Review Types
+export interface CreateTeacherReviewData {
+  rating: number; // 1-5
+  comment?: string;
+  isAnonymous?: boolean;
+}
+
+export interface UpdateTeacherReviewData {
+  rating?: number; // 1-5
+  comment?: string;
+  isAnonymous?: boolean;
+}
+
+export interface TeacherReviewResponse {
+  id: string;
+  teacherId: string;
+  studentId: string;
+  rating: number;
+  comment?: string;
+  isAnonymous: boolean;
+  studentName?: string; // Only if not anonymous
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface TeacherReviewStats {
+  averageRating: number;
+  totalReviews: number;
+  ratingDistribution: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+  };
+}
+
+export interface TeacherProfileWithReviews extends UserProfileResponse {
+  reviewStats?: TeacherReviewStats;
+  recentReviews?: TeacherReviewResponse[];
 }

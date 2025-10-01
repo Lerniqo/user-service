@@ -14,8 +14,8 @@ export const config = {
   email: {
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || '587'),
-    user: process.env.SMTP_USER || 'your-email@gmail.com',
-    pass: process.env.SMTP_PASS || 'your-app-password',
+    user: process.env.GMAIL_USER || 'your-email@gmail.com',
+    pass: process.env.GMAIL_APP_PASSWORD || 'your-app-password',
   },
   server: {
     port: parseInt(process.env.PORT || '4001'),

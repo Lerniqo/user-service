@@ -51,8 +51,9 @@ model Student {
   createdAt           DateTime @default(now()) @map("created_at")
   updatedAt           DateTime @updatedAt @map("updated_at")
 
-  // Relationship
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Relationships
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviewsWritten  TeacherReview[]
 
   @@map("students")
 }
@@ -72,8 +73,9 @@ model Teacher {
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
-  // Relationship
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Relationships
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reviews TeacherReview[]
 
   @@map("teachers")
 }
@@ -90,6 +92,27 @@ model Admin {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("admins")
+}
+
+// Teacher Review model for student feedback
+model TeacherReview {
+  id           String   @id @default(cuid())
+  teacherId    String   @map("teacher_id")
+  studentId    String   @map("student_id")
+  rating       Int      // 1-5 star rating
+  comment      String?  @db.Text
+  isAnonymous  Boolean  @default(false) @map("is_anonymous")
+  isActive     Boolean  @default(true) @map("is_active") // For soft delete
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // Relationships
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Constraints
+  @@unique([teacherId, studentId], name: "one_review_per_student_teacher")
+  @@map("teacher_reviews")
 }
 
 enum UserRole {
